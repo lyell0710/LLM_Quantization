@@ -1,0 +1,28 @@
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  92%|█████████▏| 268/290 [00:00<00:00, 2654.68it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 2731.84it/s]
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (2517232 > 131072). Running this sequence through the model will result in indexing errors
+layer 0 done
+layer 1 done
+layer 2 done
+layer 3 done
+layer 4 done
+layer 5 done
+layer 6 done
+layer 7 done
+layer 8 done
+layer 9 done
+layer 10 done
+layer 11 done
+layer 12 done
+layer 13 done
+layer 14 done
+layer 15 done
+layer 16 done
+layer 17 done
+layer 18 done
+layer 19 done
+layer 20 done
+layer 21 done
+layer 22 done
+layer 23 done
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+RESULT {"model": "Qwen/Qwen2.5-0.5B", "mode": "awq_gptq", "bits": 4, "group_size": 128, "sym": false, "ppl": 12.7376, "tokens_scored": 298302, "window": 2048, "stride": 1536, "calib": {"set": "wikitext2-train", "n": 128, "len": 2048, "seed": 3407}, "quant_seconds": 125.8, "sum_gptq_loss": 0.0, "max_pack_err": 0.001220703125}

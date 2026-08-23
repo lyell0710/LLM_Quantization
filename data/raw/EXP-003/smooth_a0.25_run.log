@@ -1,0 +1,5 @@
+Loading weights:   0%|          | 0/290 [00:00<?, ?it/s]Loading weights:  71%|███████   | 206/290 [00:00<00:00, 2051.51it/s]Loading weights: 100%|██████████| 290/290 [00:00<00:00, 2255.72it/s]
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+[transformers] Token indices sequence length is longer than the specified maximum sequence length for this model (2517232 > 131072). Running this sequence through the model will result in indexing errors
+w8a8 applied (smooth, alpha=0.25)
+RESULT {"model": "Qwen/Qwen2.5-0.5B", "track": "w8a8", "mode": "smooth", "alpha": 0.25, "w_quant": "int8 sym per-out-row", "a_quant": "int8 sym per-token", "ppl": 12.2332, "tokens_scored": 298302, "window": 2048, "stride": 1536, "quant_seconds": 19.7}

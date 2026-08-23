@@ -1,0 +1,14 @@
+{
+ "provenance": "# provenance: env=v0.25.1-venv sha=0fedb43237 cmd=\"run_w8a8.py --mode smooth --alpha 0.75\" date=2026-08-23T17:52:24+00:00 gpu=\"NVIDIA GeForce RTX 4090\" driver=610.57.04",
+ "model": "Qwen/Qwen2.5-0.5B",
+ "track": "w8a8",
+ "mode": "smooth",
+ "alpha": 0.75,
+ "w_quant": "int8 sym per-out-row",
+ "a_quant": "int8 sym per-token",
+ "ppl": 12.0221,
+ "tokens_scored": 298302,
+ "window": 2048,
+ "stride": 1536,
+ "quant_seconds": 20.0
+}

@@ -1,0 +1,5 @@
+# manifest: EXP-003 运行日志(provenance 同各自 JSON 首字段)
+naive_run.log <- 对应同名 json 的 .provenance 字段
+smooth_a0.25_run.log <- 对应同名 json 的 .provenance 字段
+smooth_a0.5_run.log <- 对应同名 json 的 .provenance 字段
+smooth_a0.75_run.log <- 对应同名 json 的 .provenance 字段
