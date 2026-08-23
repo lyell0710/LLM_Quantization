@@ -1,0 +1,4 @@
+# manifest: EXP-001 三臂运行日志(provenance 同各自 JSON 首字段)
+fp16_run.log <- run_gptq.py --mode fp16 (provenance 见 fp16_g128.json .provenance 字段)
+rtn_run.log <- run_gptq.py --mode rtn (provenance 见 rtn_g128.json .provenance 字段)
+gptq_run.log <- run_gptq.py --mode gptq (provenance 见 gptq_g128.json .provenance 字段)
