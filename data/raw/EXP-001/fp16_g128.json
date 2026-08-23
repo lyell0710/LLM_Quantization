@@ -1,0 +1,17 @@
+{
+ "provenance": "# provenance: env=v0.25.1-venv sha=worktree cmd=\"run_gptq.py --mode fp16 --group-size 128\" date=2026-08-23T17:23:17+00:00 gpu=\"NVIDIA GeForce RTX 4090\" driver=610.57.04",
+ "model": "Qwen/Qwen2.5-0.5B",
+ "mode": "fp16",
+ "bits": 4,
+ "group_size": 128,
+ "sym": false,
+ "ppl": 11.9152,
+ "tokens_scored": 298302,
+ "window": 2048,
+ "stride": 1536,
+ "calib": null,
+ "quant_seconds": 0.0,
+ "sum_gptq_loss": 0,
+ "max_pack_err": 0,
+ "per_layer": []
+}
