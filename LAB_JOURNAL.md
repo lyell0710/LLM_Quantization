@@ -42,3 +42,22 @@
   问题驱动五段 + 自家数字全程带跑)、README 主对照表 + 红线表(7 条)。
 - **下一步**:明日按 talk 提纲讲解;可选 EXP-004(clip/块级共享 s/act_order)、
   EXP-005(α>0.75 尾部/静态激活量化);简历量化段按 README 红线表升格。
+
+
+## §3 收编 LLMQT_Example,量化工程归一(2026-08-23 晚)
+
+- **做了什么**:发现本机存在第二个量化工程 LLMQT_Example(用户既有 AutoAWQ
+  侧实践本体,GitHub 远程 lyell0710/LLMQT_Example,5 commit);以
+  `merge -s ours + read-tree --prefix` 连**完整 git 历史**并入本仓
+  `llmqt_example/`,随后移除本地重复目录(远程 + 并入历史双重保底)。
+- **为什么**:用户指令"两个 quantization 工程整理成一个";CORE 单一事实源。
+- **关键发现**:旧仓 HEAD 里有 289QS 课程交付(论文/slides/**真实 PPL 与
+  latency JSON**:AWQ-INT4 Qwen2-1.5B 8.933 vs fp16 8.474 等)——
+  但旧工作区里 289QS 被**未提交地删除**;本次以 HEAD 为准并入,数据找回。
+  旧工作区另有一个未跟踪 CLAUDE.md(标准指针,本仓已有,弃)。
+- **口径勘注**:EXP-002/003 记录中"异机 AutoAWQ 实践"指实践发生地;
+  其仓副本今晨已在本机(08:38),现已并入本仓。289QS 数据为**异协议**
+  (HF eval,不同模型),README 单列一节,不与主对照表混排。
+- **产物**:merge commit 1feb83e;README 增"既有实践数据"节与结构更新。
+- **下一步**:明日讲解(talk 提纲);llmqt_example 内代码与本仓从零实现的
+  对照阅读(AutoAWQ 的块级 MSE / clip vs 本仓简化)可作讲解加餐。

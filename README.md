@@ -1,8 +1,9 @@
 # LLM_Quantization — 三种量化方法从零实现,一张表对照
 
-此前 AWQ / SmoothQuant 只有"异机 AutoAWQ 跑通"没有效果数字;本仓把
-**GPTQ / AWQ / SmoothQuant 三种方法从零实现收进同一协议**,数据补全、
-臂间可比。学习方法论:[docs/HOW_TO_LEARN_A_QUANT_METHOD.md](docs/HOW_TO_LEARN_A_QUANT_METHOD.md);
+量化工作的**唯一家**(2026-08-23 起):①三种方法从零实现同协议对照
+(GPTQ/AWQ/SmoothQuant,本仓 src/ + EXP-001~003);②既有 AutoAWQ 侧实践
+LLMQT_Example **连历史整体并入** `llmqt_example/`(框架源码 + 289QS 课程
+数据:论文/slides/OPT/Qwen2-1.5B 的 PPL 与 latency JSON)。学习方法论:[docs/HOW_TO_LEARN_A_QUANT_METHOD.md](docs/HOW_TO_LEARN_A_QUANT_METHOD.md);
 明日讲解提纲:[docs/talk/quant_walkthrough.md](docs/talk/quant_walkthrough.md);
 工程准则:/root/standards/CORE.md。
 
@@ -30,6 +31,12 @@
 一句话读表:**GPTQ 的二阶补偿收回 RTN 损失的 61.6%,AWQ 一阶启发式收回
 31.9%,二者叠加 62.6%(正交但小模型上高度重叠);0.5B 激活 outlier 温和,
 SmoothQuant 收益存在但幅度反证其价值随模型规模增长。**
+
+## 既有实践数据(llmqt_example/289QS,AutoAWQ 框架,**异协议**,不与主表混排)
+
+AWQ-INT4 vs fp16(HF eval 协议,绝对值不与本仓主表比较):
+Qwen2-1.5B PPL 8.933 vs 8.474;OPT-125m 25.18 vs 23.69
+→ `llmqt_example/289QS/results/*.json`;latency/吞吐与图见同目录 figures/。
 
 ## 怎么跑
 
@@ -69,4 +76,5 @@ scripts/    run_w4a16.py / run_w8a8.py / run_all*.sh
 records/    EXP-001~003(八节)     data/raw/EXP-00{1,2,3}/(provenance 全)
 docs/theory 01_gptq / 02_awq / 03_smoothquant(五节,实证全回填)
 docs/talk/  quant_walkthrough.md(讲解提纲)
+llmqt_example/  并入的 LLMQT_Example 全史(LLMQT 框架 / llmqt_eval / 289QS)
 ```
