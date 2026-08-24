@@ -1,6 +1,8 @@
 ---
 topic: AWQ
 status: 完成(实证=EXP-002)
+date: 2026-08-23
+exp: EXP-002
 ---
 
 # 02 · AWQ(激活感知的权重缩放量化)

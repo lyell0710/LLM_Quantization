@@ -1,5 +1,8 @@
 # LLM_Quantization — 三种量化方法从零实现,一张表对照
 
+> ⚠ 本仓当前**无 git 远端**:待用户创建 github.com/lyell0710/LLM_Quantization
+> 后推送(不代建远端);在此之前所有里程碑仅本地 commit,铁律 5 的 push 项挂起。
+
 量化工作的**唯一家**(2026-08-23 起):①三种方法从零实现同协议对照
 (GPTQ/AWQ/SmoothQuant,本仓 src/ + EXP-001~003);②既有 AutoAWQ 侧实践
 LLMQT_Example **连历史整体并入** `llmqt_example/`(框架源码 + 289QS 课程
@@ -73,8 +76,11 @@ $V scripts/run_w8a8.py  --mode {fp16|naive|smooth} [--alpha 0.5] --out <json>
 src/        gptq.py(二阶补偿) awq.py(best-scale 搜索) smoothquant.py(迁移+W8A8)
             quant_linear.py(INT4 打包 + pack↔fake 断言)
 scripts/    run_w4a16.py / run_w8a8.py / run_all*.sh
-records/    EXP-001~003(八节)     data/raw/EXP-00{1,2,3}/(provenance 全)
+records/    EXP-001~003(八节)     data/raw/EXP-00{1,2,3}/(provenance 首字段;
+            EXP-001 三臂 sha=worktree,勘注见 EXP-001 §7——代码即 274acb2 所提交内容)
 docs/theory 01_gptq / 02_awq / 03_smoothquant(五节,实证全回填)
 docs/talk/  quant_walkthrough.md(讲解提纲)
+figures/    fig1_awq_alpha_dist.png(scripts/plot_alpha_dist.py 从 EXP-002 raw 重算)
+ENV.md      异地复现指南(llmqt_example/ENV.md 为其子范围)
 llmqt_example/  并入的 LLMQT_Example 全史(LLMQT 框架 / llmqt_eval / 289QS)
 ```

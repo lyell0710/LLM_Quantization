@@ -61,3 +61,26 @@
 - **产物**:merge commit 1feb83e;README 增"既有实践数据"节与结构更新。
 - **下一步**:明日讲解(talk 提纲);llmqt_example 内代码与本仓从零实现的
   对照阅读(AutoAWQ 的块级 MSE / clip vs 本仓简化)可作讲解加餐。
+
+## §4 2026-08-24 · 审计收尾批次
+
+- **做了什么**:逐条闭环外部审计确认的 9 项问题——①run_all*.sh 改 UTC 前缀
+  新文件 + 同名拒覆盖 + worktree dirty 拒跑(旧固定命名 raw 在各 manifest 标
+  grandfather);②README 顶部加"无远端待用户建仓"警示(不代建远端);
+  ③EXP-001 §7 勘注 sha=worktree(代码即 274acb2 所提交内容)+ README
+  "provenance 全"改如实;④EXP-001 §3/§7 勘注 run_gptq.py→run_w4a16.py 改名;
+  ⑤新建根 ENV.md(链 llmqt_example/ENV.md 为子范围);⑥records/TEMPLATE.md
+  自 vllm/experiments 拷入;⑦scripts/plot_alpha_dist.py 纯 CPU 出
+  figures/fig1(α 分布),talk §3 挂图;⑧三篇 theory frontmatter 补
+  date/exp;⑨新建 llmqt_example/README.md 注明 submit/ 为交付快照。
+- **为什么**:审计收尾;硬约束(raw 不可变 / GPU 被占禁跑 / 禁建远端)下
+  全部以"勘注留痕 + 脚本加固 + 新增文档"完成,零重跑、零改 raw 本体。
+- **关键数字**:无新测量。fig1 由既有 raw 重算:per-layer best-α 中位 0.30,
+  n=168 层,0.95 两层(data/raw/EXP-002/awq_g128.json,与 EXP-002 §5 一致)。
+- **产物路径**:scripts/run_all{,2}.sh、scripts/plot_alpha_dist.py、
+  figures/fig1_awq_alpha_dist.png、ENV.md、records/TEMPLATE.md、
+  llmqt_example/README.md、data/raw/EXP-00{1,2,3}/manifest.txt(勘注)、
+  records/EXP-001 §3/§7(勘注)、README(警示+如实表述)、docs/theory/01–03
+  (frontmatter)、docs/talk/quant_walkthrough.md(挂图)。
+- **下一步**:用户创建 github.com/lyell0710/LLM_Quantization 远端后首推全量;
+  GPU 空闲后可选 EXP-004(clip/块级共享 s/act_order)、EXP-005(α 尾部)。

@@ -2,3 +2,12 @@
 fp16_run.log <- run_gptq.py --mode fp16 (provenance 见 fp16_g128.json .provenance 字段)
 rtn_run.log <- run_gptq.py --mode rtn (provenance 见 rtn_g128.json .provenance 字段)
 gptq_run.log <- run_gptq.py --mode gptq (provenance 见 gptq_g128.json .provenance 字段)
+
+# 勘注 2026-08-24(审计收尾批次;raw 本体不改,以下为登记)
+# - 固定命名文件(fp16/rtn/gptq_g128.json 与 *_run.log)产生于 UTC 前缀命名规范
+#   生效前,按 grandfather 保留原名;run_all.sh 现已改为 UTC 前缀新文件 +
+#   同名拒覆盖 + worktree dirty 拒跑。
+# - 各 JSON provenance 的 sha=worktree:代码即 274acb2 所提交内容(勘注见
+#   records/EXP-001 §7)。
+# - provenance cmd 中的 run_gptq.py 即现 scripts/run_w4a16.py(EXP-002 收编时
+#   改名,勘注见 records/EXP-001 §7)。

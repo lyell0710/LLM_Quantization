@@ -1,6 +1,8 @@
 ---
 topic: SmoothQuant
 status: 完成(实证=EXP-003)
+date: 2026-08-23
+exp: EXP-003
 ---
 
 # 03 · SmoothQuant(激活难度向权重迁移的 W8A8)

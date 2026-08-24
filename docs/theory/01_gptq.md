@@ -1,6 +1,8 @@
 ---
 topic: GPTQ
 status: 完成(实证=EXP-001)
+date: 2026-08-23
+exp: EXP-001
 ---
 
 # 01 · GPTQ(逐列二阶误差补偿量化)

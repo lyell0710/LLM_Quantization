@@ -35,6 +35,8 @@ dense 7B bs=1 实测贴 roofline 77%)→ 权重每少一半 bit,decode 就快约
   占更细的格。α 网格搜,输出 MSE 裁决。
 - 自家数字:**PPL 13.41,收回 31.9%**;per-layer α 中位 0.30、两层飙到
   0.95——保护强度按层自适应,这个分布图比结论好讲。
+  分布图:`figures/fig1_awq_alpha_dist.png`(`scripts/plot_alpha_dist.py` 从
+  `data/raw/EXP-002/awq_g128.json` 重算,2026-08-24)。
 - 与 GPTQ 的关系:改坐标系 vs 改取整,正交可叠加——自家叠加臂
   **12.7376(62.6%)**,比纯 GPTQ 好但只有 +1.0pp:方向成立,
   0.5B 上高度重叠,**分寸感就是可信度**。

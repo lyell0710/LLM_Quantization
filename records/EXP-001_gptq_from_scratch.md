@@ -30,7 +30,8 @@ INT4),验证可证伪假设(阈值跑前锁定):**同一量化网格下,GPTQ 的
 ## 3. 步骤
 
 `bash scripts/run_all.sh` = 三次 `run_gptq.py --mode {fp16|rtn|gptq}
---group-size 128`;每臂结束即评 PPL(wikitext-2 test,窗 2048/步 1536,
+--group-size 128`(勘注 2026-08-24:run_gptq.py 已于 EXP-002 收编时改名为
+scripts/run_w4a16.py,见 §7);每臂结束即评 PPL(wikitext-2 test,窗 2048/步 1536,
 与 vllm/experiments#EXP-016 同族协议,三臂同计分 token 集 298302 tok)。
 
 ## 4. 原始数据
@@ -68,6 +69,13 @@ per-layer loss/耗时/pack 校验)+ 对应 *_run.log。
 - act_order、W3/W2 更低位宽、域外校准集敏感性均未测——留作 EXP-002 候选。
 - 实现约束:blocksize 必须等于 group_size(组参数需取自补偿后权重);
   通用化(组内跨块)未做,记录在 src/gptq.py 断言处。
+- 【勘注 2026-08-24】raw JSON provenance 的 sha=worktree:三臂运行时实验代码
+  尚未 commit,run_all.sh 以 worktree 占位。代码即 274acb2 所提交内容(该
+  commit 首次入库 src/gptq.py 与 scripts/,与运行版本一致,git show 可核)。
+  raw 不改;run_all.sh 已改为 worktree dirty 即拒跑,杜绝复发。
+- 【勘注 2026-08-24】§3 与 raw provenance cmd 中的 run_gptq.py 已于 EXP-002
+  收编时改名为 scripts/run_w4a16.py(同一入口扩为五臂,b11f0f2 rename 可溯);
+  历史文件与 raw 不改,以本勘注为准。
 
 ## 8. 下游影响
 
