@@ -101,3 +101,26 @@
   本节。
 - **下一步**:用户建远端 github.com/lyell0710/LLM_Quantization 后 push;
   可选 EXP-004(clip/块级共享 s)/EXP-005(α 尾部/静态激活)。
+
+## §5 README 对外/对内分家,新建 LEDGER.md(2026-08-25)
+
+- **做了什么**:①新建 LEDGER.md 为状态与措辞唯一权威,从 README 搬入:
+  实验台账(日期/状态列)、措辞红线表(7 条)、无远端警示与待办
+  (远端/GPU/EXP-004/005)、勘误与审计留痕、289QS 异协议说明、内部硬约定;
+  ②README 重写为纯对外门面(读者=陌生面试官):一句话+动机 → 🎯核心结果
+  (测量条件作自然定语)→ 📊图表 → 🧠关键发现(四段机制解释:二阶 vs 一阶
+  定价/叠加重叠/SmoothQuant 规模论证+α=0.25 反例/per-layer α 自适应)→
+  🔬代码导览 → 🚀复现 → 结构 → 📚实验记录索引(无日期无状态,一行一句
+  结论)→ 🧪测量方法(对外化:可溯源/误差条/对照反例臂/负结果照报)→
+  🔗相关项目;README 禁词逐一清零(日期/勘误/审计/红线/台账/待办类);
+  ③出图脚本脚注去日期(保留源数据+硬件+轮数),fig1/fig2 重出;
+  ④CLAUDE.md 加附则(README=对外门面;唯一权威=LEDGER.md);
+  HOW_TO_LEARN §6 与 llmqt_example/README 的红线/异协议引用改指 LEDGER.md。
+- **为什么**:用户反馈 README 读起来像作者实验记录,而读者应是第一次打开
+  仓库、只有 60 秒的面试官——对外讲机制与数字,对内流程全部收进账本。
+- **关键数字**:无新测量;fig1/fig2 由既有 raw 重算,数值不变
+  (62.6/61.6/31.9/48.5%;α 中位 0.30,n=168)。
+- **产物**:LEDGER.md、README.md(重写)、scripts/plot_{recovery,alpha_dist}.py
+  (脚注)、figures/fig{1,2}(重出)、CLAUDE.md 附则、
+  docs/HOW_TO_LEARN_A_QUANT_METHOD.md、llmqt_example/README.md、本节。
+- **下一步**:待用户建远端后首推;可选 EXP-004/005(见 LEDGER 待办)。

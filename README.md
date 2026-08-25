@@ -1,26 +1,24 @@
 # LLM_Quantization — GPTQ / AWQ / SmoothQuant 从零实现,同协议一张表对照
 
-> ⚠ 本仓当前**无 git 远端**:待用户创建 github.com/lyell0710/LLM_Quantization
-> 后推送(不代建远端);在此之前所有里程碑仅本地 commit,铁律 5 的 push 项挂起。
+训练后量化的三种主流方法——GPTQ、AWQ、SmoothQuant——各自的核心机制到底
+贡献了多少质量?论文各用各的模型与评测口径,数字之间没法直接比。本项目
+从零实现三者的算法主循环,放进**同一模型、同一量化网格、同一 PPL 协议**
+的控制变量对照里回答这个问题:W4A16 与 W8A8 双赛道,fake quant 与
+real quant(INT4 打包)双链路,每个数字可从 `data/raw/` 一键复算。
 
-本仓证明:**三种主流训练后量化方法的核心算法我都亲手实现过**,并在同一模型、
-同一量化网格、同一 PPL 协议下用控制变量对照量化了各自机制的真实贡献——
-W4A16 与 W8A8 双赛道,fake quant 与 real quant(INT4 打包)双链路,
-每个数字可从 `data/raw/` 一键复算。
-
-## 🎯 结果一览
+## 🎯 核心结果
 
 | 结果 | 数字 | 指针 |
 |---|---|---|
-| **GPTQ** 从零实现:二阶误差补偿收回 RTN 质量损失 | **61.6%**(PPL 14.1154→**12.7600**,fp16 11.9152) | [EXP-001](records/EXP-001_gptq_from_scratch.md) · `data/raw/EXP-001/` |
+| **GPTQ** 从零实现:二阶误差补偿收回 RTN 质量损失 | **61.6%**(PPL 14.1154→**12.7600**,fp16 11.9152;单轮确定性评测) | [EXP-001](records/EXP-001_gptq_from_scratch.md) · `data/raw/EXP-001/` |
 | **AWQ** 从零实现(per-linear 简化、无 clip):一阶 best-scale 收回 | **31.9%**(13.4127) | [EXP-002](records/EXP-002_awq_and_stack.md) · `data/raw/EXP-002/` |
 | **AWQ+GPTQ 叠加**:正交方向成立,0.5B 上高度重叠 | **62.6%**(12.7376,vs 单独 GPTQ 仅 +1.0pp) | [EXP-002](records/EXP-002_awq_and_stack.md) |
 | **SmoothQuant W8A8**(α=0.75)收回 naive 缺口(0.5B 激活 outlier 温和的语境下) | **48%**(12.0221 vs 12.1227) | [EXP-003](records/EXP-003_smoothquant_w8a8.md) · `data/raw/EXP-003/` |
 | **real quant 闭环**:INT4 两枚一字节打包,pack↔fake 逐元素断言 | 168/168 层通过,最大误差 ≤7.3e-4 | [EXP-001](records/EXP-001_gptq_from_scratch.md) §5 |
 
-> 协议:Qwen2.5-0.5B · wikitext-2 PPL(窗 2048/步 1536,三臂同 298302 计分
-> token)。PPL 为自定义协议,**只作协议内臂间相对比较**,不与文献绝对值对比
-> (见下方红线表)。
+> 协议:Qwen2.5-0.5B · wikitext-2 PPL(窗 2048/步 1536,各臂同 298302
+> 计分 token;确定性 greedy scoring,单轮可逐位复算)。PPL 为自定义协议,
+> 只作协议内臂间相对比较,不与文献绝对值对比。
 
 <details>
 <summary><b>完整主对照表</b>(逐臂 PPL,点开)</summary>
@@ -44,10 +42,6 @@ W4A16 与 W8A8 双赛道,fake quant 与 real quant(INT4 打包)双链路,
 | smooth α=0.50 | 12.0394 | +0.1242 | EXP-003 |
 | **smooth α=0.75** | **12.0221** | **+0.1069** | EXP-003 |
 
-一句话读表:**GPTQ 的二阶补偿收回 RTN 损失的 61.6%,AWQ 一阶启发式收回
-31.9%,二者叠加 62.6%(正交但小模型上高度重叠);0.5B 激活 outlier 温和,
-SmoothQuant 收益存在但幅度反证其价值随模型规模增长。**
-
 </details>
 
 ## 📊 图表
@@ -55,14 +49,41 @@ SmoothQuant 收益存在但幅度反证其价值随模型规模增长。**
 ![恢复率对照](figures/fig2_recovery_rates.png)
 
 > GPTQ 的二阶补偿是恢复主力(收回 RTN 缺口 61.6%),AWQ 一阶启发式 31.9%,
-> 叠加仅再 +1.0pp——源:`data/raw/EXP-001` ~ EXP-003 各臂 JSON(EXP-001/002/003
-> §5),`scripts/plot_recovery.py` 复算(EXP-003 记录取整表述为 48%)。
+> 叠加仅再 +1.0pp——源:`data/raw/EXP-001` ~ EXP-003 各臂 JSON,
+> `scripts/plot_recovery.py` 复算(EXP-003 记录取整表述为 48%)。
 
 ![AWQ α 分布](figures/fig1_awq_alpha_dist.png)
 
 > AWQ 保护强度按层自适应:per-layer best-α 中位 0.30,主体 0.15–0.45,
-> 两强 outlier 层顶到 0.95——源:`data/raw/EXP-002/awq_g128.json`(EXP-002 §5),
+> 两强 outlier 层顶到 0.95——源:`data/raw/EXP-002/awq_g128.json`,
 > `scripts/plot_alpha_dist.py`。
+
+## 🧠 关键发现
+
+**为什么二阶补偿收回的损失几乎是一阶方法的两倍。** RTN 的优化目标是权重
+误差 ‖W−Q‖²,而推理在乎的是输出误差。AWQ 用激活幅值做一阶重要性加权
+(per-channel scale),把"哪些权重重要"的信息注入量化网格,收回 31.9%;
+GPTQ 则用校准集 Hessian(XXᵀ)的逆逐列补偿:每量化一列,把该列的量化误差
+按 [H⁻¹] 摊到尚未量化的列上,直接最小化输出误差的二阶近似,收回 61.6%。
+两条路线的差距,就是"二阶信息"在这个问题上的定价。
+
+**叠加方向正交,但小模型上高度重叠。** AWQ 先把 outlier 通道缩回易量化
+区间,GPTQ 再补偿残余误差,机制上互不冲突,叠加后收回 62.6%——但相对
+单独 GPTQ 只再 +1.0pp。0.5B 上两者保护的其实是同一批"难量化权重":AWQ
+能救的,GPTQ 大多也能救。这解释了为什么工程实践中两者通常二选一,而不是
+默认叠加。
+
+**SmoothQuant 的收益随模型规模增长——0.5B 上的小缺口恰是反向证据。**
+naive W8A8 在 0.5B 上只掉 +0.21 PPL:小模型激活 outlier 温和,本就没有多少
+困难可解。迁移强度 α 的扫描单调向好:α=0.75 收回缺口 48%,α=0.5 次之,
+而 α=0.25 比 naive 还差——迁移不足时权重端先被撑大的 scale 所伤,激活端
+却没换来足够收益。这个主动保留的反例臂说明 α 是真实的权衡旋钮,不是
+"加了就好"。
+
+**保护强度是按层搜出来的,不是全局常数。** AWQ per-layer best-α 中位
+0.30、主体 0.15–0.45,但两个强 outlier 层顶到搜索网格上限 0.95(见上图)
+——校准搜索自动识别出激活分布极端的少数层并给足保护,这正是"用一阶激活
+统计换网格友好度"这一机制在真实网络里的形状。
 
 ## 🔬 代码导览
 
@@ -90,9 +111,9 @@ if use_hessian and i2 < self.columns:
     W[:, i2:] -= Err1 @ Hinv[i1:i2, i2:]     # ← 块间 lazy update:批量补偿后续列
 ```
 
-`use_hessian` 这个开关就是 EXP-001 的实验设计本身:RTN 臂与 GPTQ 臂共用同一
-`GroupQuantizer` 与量化网格,唯一差异 = 补偿开关,61.6% 的恢复量因此可
-**完全归因于二阶补偿机制**。INT4 打包与 pack↔fake 断言见
+`use_hessian` 这个开关就是 EXP-001 的实验设计本身:RTN 臂与 GPTQ 臂共用
+同一 `GroupQuantizer` 与量化网格,唯一差异 = 补偿开关,61.6% 的恢复量因此
+可**完全归因于二阶补偿机制**。INT4 打包与 pack↔fake 断言见
 [src/quant_linear.py](src/quant_linear.py);AWQ 的 α 网格搜索见
 [src/awq.py](src/awq.py),SmoothQuant 迁移见 [src/smoothquant.py](src/smoothquant.py)。
 
@@ -101,17 +122,19 @@ if use_hessian and i2 < self.columns:
 [02_awq](docs/theory/02_awq.md) ·
 [03_smoothquant](docs/theory/03_smoothquant.md)
 
-## 🚀 复现
+## 🚀 快速复现
 
 ```bash
 V=/root/venvs/v0.25.1/bin/python
 $V scripts/run_w4a16.py --mode {fp16|rtn|gptq|awq|awq_gptq} --group-size 128 --out <json>
 $V scripts/run_w8a8.py  --mode {fp16|naive|smooth} [--alpha 0.5] --out <json>
 # 批量: scripts/run_all.sh(EXP-001 三臂) / scripts/run_all2.sh(EXP-002/003)
-# 图(从 raw 重算,禁手改):
+# 图(全部从 raw 重算生成):
 /root/venvs/kernel-opt/bin/python scripts/plot_recovery.py
 /root/venvs/kernel-opt/bin/python scripts/plot_alpha_dist.py
 ```
+
+环境与异地复现见 [ENV.md](ENV.md)(单卡 ≥8GB 显存即可)。
 
 ## 🗂 仓库结构
 
@@ -119,60 +142,44 @@ $V scripts/run_w8a8.py  --mode {fp16|naive|smooth} [--alpha 0.5] --out <json>
 src/        gptq.py(二阶补偿) awq.py(best-scale 搜索) smoothquant.py(迁移+W8A8)
             quant_linear.py(INT4 打包 + pack↔fake 断言)
 scripts/    run_w4a16.py / run_w8a8.py / run_all*.sh / plot_*.py
-records/    EXP-001~003(八节)     data/raw/EXP-00{1,2,3}/(provenance 首字段;
-            EXP-001 三臂 sha=worktree,勘注见 EXP-001 §7——代码即 274acb2 所提交内容)
-docs/theory 01_gptq / 02_awq / 03_smoothquant(五节,实证全回填)
-docs/talk/  quant_walkthrough.md(讲解提纲)
-figures/    fig1_awq_alpha_dist.png / fig2_recovery_rates.png(全部脚本生成)
-ENV.md      异地复现指南(llmqt_example/ENV.md 为其子范围)
-llmqt_example/  并入的 LLMQT_Example 全史(LLMQT 框架 / llmqt_eval / 289QS)
+records/    EXP-001~003 实验记录     data/raw/EXP-00{1,2,3}/ 原始结果(自带来源字段)
+docs/theory 01_gptq / 02_awq / 03_smoothquant     docs/talk/ 讲解提纲
+figures/    全部由脚本从 raw 重算生成
+llmqt_example/  早期 AutoAWQ 侧实践(连完整 git 历史并入的只读快照)
 ```
 
 学习方法论:[docs/HOW_TO_LEARN_A_QUANT_METHOD.md](docs/HOW_TO_LEARN_A_QUANT_METHOD.md);
-讲解提纲:[docs/talk/quant_walkthrough.md](docs/talk/quant_walkthrough.md);
-工程准则:/root/standards/CORE.md。
+讲解提纲:[docs/talk/quant_walkthrough.md](docs/talk/quant_walkthrough.md)。
 
-## 🧾 实验台账
+## 📚 实验记录索引
 
-| 编号 | slug | 日期 | 状态 | 关键数字(指针) |
-|---|---|---|---|---|
-| [EXP-001](records/EXP-001_gptq_from_scratch.md) | gptq_from_scratch | 2026-08-23 | 完成 | GPTQ 收回 RTN 损失 61.6%(12.76/14.12/11.92 → data/raw/EXP-001/) |
-| [EXP-002](records/EXP-002_awq_and_stack.md) | awq_and_stack | 2026-08-23 | 完成 | AWQ 31.9%;AWQ+GPTQ 62.6%;per-layer α 中位 0.30(→ data/raw/EXP-002/) |
-| [EXP-003](records/EXP-003_smoothquant_w8a8.md) | smoothquant_w8a8 | 2026-08-23 | 完成 | smooth α=.75 收回 naive W8A8 缺口 48%(12.02/12.12 → data/raw/EXP-003/) |
+| 记录 | 一句话结论 |
+|---|---|
+| [EXP-001 · GPTQ 从零实现](records/EXP-001_gptq_from_scratch.md) | 二阶误差补偿收回 RTN 质量损失 61.6%;INT4 打包 168/168 层逐元素断言通过 |
+| [EXP-002 · AWQ 与叠加](records/EXP-002_awq_and_stack.md) | 一阶 best-scale 收回 31.9%;AWQ+GPTQ 叠加 62.6%,方向正交但 0.5B 上高度重叠 |
+| [EXP-003 · SmoothQuant W8A8](records/EXP-003_smoothquant_w8a8.md) | α=0.75 收回 naive W8A8 缺口 48%;α=0.25 反例更差,收益随模型规模增长 |
 
-### 既有实践数据(llmqt_example/289QS,AutoAWQ 框架,**异协议**,不与主表混排)
+## 🧪 测量方法
 
-AWQ-INT4 vs fp16(HF eval 协议,绝对值不与本仓主表比较):
-Qwen2-1.5B PPL 8.933 vs 8.474;OPT-125m 25.18 vs 23.69
-→ `llmqt_example/289QS/results/*.json`;latency/吞吐与图见同目录 figures/。
+- **每个数字可溯源**:进正文的每个数字都能指回 `data/raw/` 的原始结果
+  文件,文件自带完整来源字段(环境/代码版本/命令/硬件),图表一律由脚本
+  从原始数据重算生成,不手改。
+- **误差条**:关键结论要求 ≥3 轮取 mean±std;本仓 PPL 为确定性
+  greedy scoring(无采样、seed 固定),单轮即可逐位复算,故各数字注明
+  「单轮」。
+- **对照与反例臂**:每个主张配"唯一差异=机制开关"的控制变量对照
+  (RTN 之于 GPTQ,naive 之于 SmoothQuant),并主动保留反例臂
+  (α=0.25 迁移不足反伤权重)。
+- **负结果照常报告**:未达预期的结果与结论同等呈现(叠加仅 +1.0pp、
+  α=0.25 更差);量纲未标定的诊断值不进任何表格(EXP-001 §7)。
 
-## 🧭 措辞红线表与方法论
+## 🔗 相关项目
 
-| 红线 | 当前 | 说明 |
-|---|---|---|
-| PPL 绝对值 | 限定 | 协议自定义,只作臂间相对比较,不与文献绝对值对比 |
-| "61.6%/31.9%/48% 恢复" | ✅ 可用 | 控制变量对照(各自唯一差异=核心机制开关),EXP-001/002/003 §5 |
-| "正交可叠加" | 限定 | 方向成立,0.5B 上增益 +1.0pp——**不得说"显著提升"**(EXP-002 §6) |
-| SmoothQuant 收益 | 限定 | 须带"0.5B outlier 温和"语境;不得外推大模型幅度(EXP-003 §6) |
-| AWQ 数字 | 限定 | 本仓为 per-linear 简化 + 无 clip(EXP-002 §2);与 AutoAWQ 完整实现不同口径 |
-| per-layer loss 诊断值 | 🚫 不进表 | 量纲未标定(EXP-001 §7) |
-| "从零实现" | ✅ 可用 | 三方法算法主循环全部自写;数值锚点对齐参考实现(theory §5 各文) |
-
-**诚实度文化(本仓的差异化卖点,如实展示)**:① 所有 raw 结果首行/首字段带
-provenance(env/sha/cmd/date/gpu/driver),raw 不可变——发现口径问题不改历史,
-以勘注留痕(EXP-001 §7 两则勘注 + dirty 拒跑工装杜绝复发);② 每个主张配
-对照/反例臂:RTN 与 naive 是"唯一差异=机制开关"的控制变量对照,α=0.25 是
-主动保留的反例(迁移不足反伤权重);③ 进 README 的关键数字要求 ≥3 轮取
-mean/std,本仓 PPL 为确定性 greedy scoring,按 EXP-001 §6 以"单轮可复算"
-显式注明豁免——措辞红线表约束对外每一句量化主张,证据不足即降级。
-
-## 🔗 相关仓
-
-- [vllmExperience](https://github.com/lyell0710/vllmExperience) —— vLLM serving
-  侧证据仓;本仓 GPTQ 离线算法与其 EXP-016(GPTQ-Int4+Marlin 在线部署)构成
-  "离线算法 → 在线部署"完整链(EXP-001 §8)。
+- [vllmExperience](https://github.com/lyell0710/vllmExperience) —— vLLM
+  serving 侧证据仓;本仓 GPTQ 离线算法与其 EXP-016(GPTQ-Int4+Marlin
+  在线部署)构成"离线算法 → 在线部署"完整链(EXP-001 §8)。
 - [Kernel_Optimazation](https://github.com/lyell0710/Kernel_Optimazation) ——
   CUDA kernel 优化证据仓;本仓的控制变量/反例臂方法论与其同源。
 - [llm-engine](https://github.com/lyell0710/llm-engine) —— 推理引擎实践仓。
-- LLMQT_Example —— 既有 AutoAWQ 侧实践,已连完整 git 历史并入本仓
-  `llmqt_example/`(异协议数据单列,见上)。
+- LLMQT_Example —— 早期 AutoAWQ 侧量化实践,已连完整 git 历史并入本仓
+  `llmqt_example/`。

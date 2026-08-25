@@ -16,7 +16,6 @@ from matplotlib import font_manager
 ROOT = Path(__file__).resolve().parent.parent
 RAW = ROOT / "data/raw"
 OUT = ROOT / "figures/fig2_recovery_rates.png"
-GEN_DATE = "2026-08-25"
 
 font_manager.fontManager.addfont("/usr/share/fonts/truetype/arphic/uming.ttc")
 plt.rcParams["font.family"] = font_manager.FontProperties(
@@ -84,8 +83,8 @@ for s in ("left", "bottom"):
     ax.spines[s].set_color("#d8d7d3")
 
 fig.text(0.01, 0.02,
-         f"源数据 data/raw/EXP-001~003/ 各臂 JSON(2026-08-23,EXP-001/002/003)· 生成 {GEN_DATE} · scripts/plot_recovery.py\n"
-         "PPL 为确定性 greedy scoring,单轮可复算(EXP-001 §6),无 3 轮 std 可画;"
+         "源数据 data/raw/EXP-001~003/ 各臂 JSON(EXP-001/002/003 §5)· RTX 4090 单卡 · scripts/plot_recovery.py\n"
+         "PPL 为确定性 greedy scoring,单轮可复算(EXP-001 §6);"
          "EXP-003 记录将 48.5% 取整表述为 48%(EXP-003 §6)。",
          color=INK2, fontsize=6.5)
 fig.tight_layout(rect=(0, 0.07, 1, 1))

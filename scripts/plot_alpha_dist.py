@@ -14,7 +14,6 @@ from matplotlib import font_manager
 ROOT = Path(__file__).resolve().parent.parent
 SRC = ROOT / "data/raw/EXP-002/awq_g128.json"
 OUT = ROOT / "figures/fig1_awq_alpha_dist.png"
-GEN_DATE = "2026-08-24"
 
 # 配色(单系列):series-1 蓝 + 文本 token(dataviz 规范,白底)
 BLUE, INK, INK2, SURFACE = "#2a78d6", "#0b0b0b", "#52514e", "#ffffff"
@@ -54,8 +53,8 @@ for s in ("top", "right"):
 for s in ("left", "bottom"):
     ax.spines[s].set_color("#d8d7d3")
 fig.text(0.01, 0.005,
-         f"源数据 data/raw/EXP-002/awq_g128.json(n={n} Linear 层,EXP-002)· "
-         f"生成 {GEN_DATE} · scripts/plot_alpha_dist.py",
+         f"源数据 data/raw/EXP-002/awq_g128.json(n={n} Linear 层,EXP-002 §5)· "
+         "RTX 4090 单卡 · 单轮 · scripts/plot_alpha_dist.py",
          color=INK2, fontsize=7)
 fig.tight_layout(rect=(0, 0.03, 1, 1))
 OUT.parent.mkdir(parents=True, exist_ok=True)
