@@ -84,3 +84,20 @@
   (frontmatter)、docs/talk/quant_walkthrough.md(挂图)。
 - **下一步**:用户创建 github.com/lyell0710/LLM_Quantization 远端后首推全量;
   GPU 空闲后可选 EXP-004(clip/块级共享 s/act_order)、EXP-005(α 尾部)。
+
+## §4 README 升级为门面级 + 恢复率图(2026-08-25)
+
+- **做了什么**:README 重排为门面结构(🎯结果一览带指针 → 📊图表 →
+  🔬代码导览(src/gptq.py Cholesky+补偿主循环节选)→ 复现 → 结构 → 台账 →
+  红线表+诚实度方法论 → 相关仓 GitHub 链接);新增 scripts/plot_recovery.py
+  从 data/raw/EXP-00{1,2,3} 各臂 JSON 复算恢复率,产出
+  figures/fig2_recovery_rates.png(水平条形,双赛道分组,条端标值);
+  fig1 复用。台账与红线表原样保留(仅位置下移)。
+- **为什么**:秋招投递前门面化——面试官 30 秒扫读可见数据/图/代码/方法论;
+  数字全部走 raw 复算或现行文档转录,不新造。
+- **关键数字**:fig2 复算 62.6 / 61.6 / 31.9 / 48.5%,与 records 一致
+  (48.5% 即 EXP-003 §6 取整表述的 48%,图脚注注明);无新增测量。
+- **产物**:README.md、scripts/plot_recovery.py、figures/fig2_recovery_rates.png、
+  本节。
+- **下一步**:用户建远端 github.com/lyell0710/LLM_Quantization 后 push;
+  可选 EXP-004(clip/块级共享 s)/EXP-005(α 尾部/静态激活)。
