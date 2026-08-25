@@ -366,7 +366,7 @@ EXP-001 的实验设计本身:61.6% 的恢复量可完全归因于二阶补偿�
 的更新在赋值 Q1 之后不再被读),但把块间更新的 `Hinv[i1:i2, i2:]` 切片切错
 一列,后续所有组的网格都建立在错位的权重上,误差逐块滚雪球。
 
-**第 5 段 · AWQ 的 α 网格搜索**(`src/awq.py:104-123`)——一阶方法的全部
+**第 5 段 · AWQ 的 α 网格搜索**(`src/awq.py:104-124`)——一阶方法的全部
 机关:
 
 ```python
@@ -402,7 +402,7 @@ EXP-001 的实验设计本身:61.6% 的恢复量可完全归因于二阶补偿�
 `group_fakequant`(`src/awq.py:42-62`),纯 RTN、与 GPTQ 臂共用同一
 GroupQuantizer:AWQ 的全部收益必须只来自 s 预缩放,归因才干净。
 
-**第 6 段 · SmoothQuant 的迁移与双端 fake quant**(`src/smoothquant.py:229-250`):
+**第 6 段 · SmoothQuant 的迁移与双端 fake quant**(`src/smoothquant.py:80-101`):
 
 ```python
         # wmax 沿 dim=0(跨输出行)取:s 是输入通道方向的量,必须与
