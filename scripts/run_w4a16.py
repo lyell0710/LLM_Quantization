@@ -14,7 +14,7 @@ AWQ↔RTN 唯一差异=s 预缩放)。
 PPL 协议与 vllm/experiments#EXP-016 同族:窗 2048 / 步 1536,test 全串;
 各臂同 298302 计分 token,确定性 greedy scoring,单轮可逐位复算。
 
-实测锚(EXP-001/002):fp16 11.9152 / RTN 14.1154 / AWQ 13.4127 /
+实测锚(EXP-001(EXP-002 臂经幅值感知容差,最大 pack 误差 1.22e-3)):fp16 11.9152 / RTN 14.1154 / AWQ 13.4127 /
 GPTQ 12.7600 / AWQ+GPTQ 12.7376——GPTQ 收回 RTN 损失 61.6%、AWQ 31.9%、
 叠加 62.6%(vs 单独 GPTQ 仅 +1.0pp,0.5B 上两机制高度重叠);量化耗时
 30/43/135/258 s,pack↔fake 最大误差 ≤7.3e-4。
