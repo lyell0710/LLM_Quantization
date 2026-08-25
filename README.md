@@ -114,6 +114,8 @@ $V scripts/run_w8a8.py  --mode {fp16|naive|smooth} [--alpha 0.5] --out <json>
 
 ## 实验记录
 
+深度讲义(不跳步推导 + 代码逐段走读)见 [docs/lectures/](docs/lectures/)。
+
 | 记录 | 结论 |
 |---|---|
 | [EXP-001:GPTQ 从零实现](records/EXP-001_gptq_from_scratch.md) | 二阶误差补偿收回 RTN 质量损失 61.6%;INT4 打包 168/168 层逐元素断言通过 |
