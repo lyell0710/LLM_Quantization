@@ -68,7 +68,6 @@ data/raw/       EXP-00{1,2,3}/ 原始结果(自带来源字段)
 docs/theory/    01_gptq / 02_awq / 03_smoothquant
 docs/talk/      讲解提纲
 figures/        全部由脚本从 raw 重算生成
-llmqt_example/  早期 AutoAWQ 侧实践(连完整 git 历史并入的只读快照)
 ```
 
 GPTQ 的核心在两处：Cholesky 求 H⁻¹ 的上三角因子，以及逐列量化加两级误差补偿（块内立即、块间延迟）。节选自 [src/gptq.py](src/gptq.py) `GPTQ.quantize()`（`# <-` 注释为导览所加）：
@@ -133,4 +132,4 @@ $V scripts/run_w8a8.py  --mode {fp16|naive|smooth} [--alpha 0.5] --out <json>
 - [vllmExperience](https://github.com/lyell0710/vllmExperience)：vLLM serving 侧证据仓；本仓 GPTQ 离线算法与其 vllm/experiments#EXP-016《D4 FP8 vs W4A16 同卡对比》（GPTQ-Int4+Marlin 在线部署）构成「离线算法到在线部署」完整链（EXP-001 §8）。
 - [Kernel_Optimazation](https://github.com/lyell0710/Kernel_Optimazation)：CUDA kernel 优化证据仓；本仓的控制变量/反例臂方法论与其同源。
 - [llm-engine](https://github.com/lyell0710/llm-engine)：推理引擎实践仓。
-- LLMQT_Example：早期 AutoAWQ 侧量化实践，已连完整 git 历史并入本仓 `llmqt_example/`。
+- 早期基于 AutoAWQ 的量化实践另存于私有仓（含课程作业与 vendored 第三方源码），不随本仓公开；本仓四个量化实现均为从零手写，不依赖该仓。

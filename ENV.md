@@ -26,4 +26,3 @@ bash scripts/run_all2.sh   # EXP-002/003(同上)
 
 ## 子范围
 
-- `llmqt_example/`（AutoAWQ 侧既有实践，异机 RTX 4070 Laptop）自带环境说明：llmqt_example/ENV.md——与本文件相互独立，勿混用版本号。

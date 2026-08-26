@@ -17,7 +17,7 @@
 ## 待办 / backlog
 
 - 待用户创建远端 github.com/lyell0710/LLM_Quantization 后首推全量并验证。
-- 待 GPU 空闲：可选 EXP-004（clip / 块级共享 s / act_order）、 EXP-005（α>0.75 尾部 / 静态激活量化）。
+- 待 GPU 空闲：可选 vllm/experiments#EXP-004（clip / 块级共享 s / act_order）、 vllm/experiments#EXP-005（α>0.75 尾部 / 静态激活量化）。
 - 简历量化段只从 records 数字生成，措辞过本表红线。
 
 ## 措辞红线表
@@ -42,5 +42,5 @@
 
 - data/raw 不可变；发现口径问题不改历史，以勘注留痕；dirty 拒跑工装杜绝复发。
 - 图禁手改，只由 scripts/plot_*.py 从 raw 重算（STANDARDS §6）。图脚注/标题不带日期（对外化，2026-08-25 起），源数据文件+硬件+轮数保留。
-- 289QS / llmqt_eval **异协议**说明：PPL 为 HF eval 协议（不同模型、不同评测实现），绝对值不与主对照表比较、不混排。数据：AWQ-INT4 vs fp16—— Qwen2-1.5B 8.933 vs 8.474；OPT-125m 25.18 vs 23.69 → llmqt_example/289QS/results/*.json；latency/吞吐与图见同目录 figures/。 llmqt_example/（2026-08-23 连完整 git 历史并入，merge 1feb83e）为只读快照，submit/ 交付原貌不清理。
+- 早期 AutoAWQ 侧实践的 PPL **异协议**说明（该部分未随本仓公开）：PPL 为 HF eval 协议（不同模型、不同评测实现），绝对值不与主对照表比较、不混排。数据：AWQ-INT4 vs fp16—— Qwen2-1.5B 8.933 vs 8.474；OPT-125m 25.18 vs 23.69 → 早期 AutoAWQ 侧实践（未随本仓公开）；latency/吞吐与图见同目录 figures/。 早期 AutoAWQ 侧实践（未随本仓公开）（2026-08-23 连完整 git 历史并入，merge 1feb83e）为只读快照，submit/ 交付原貌不清理。
 - 工程准则：/root/standards/CORE.md；收尾自检 bash /root/standards/check.sh 必须 0 FAIL。
