@@ -1,5 +1,5 @@
 #!/bin/bash
-# EXP-002(awq/awq_gptq)+ EXP-003(naive/smooth α 扫描)批跑。
+# EXP-002（AWQ 从零实现 + AWQ×GPTQ 叠加）(awq/awq_gptq)+ EXP-003（SmoothQuant 从零实现）(naive/smooth α 扫描)批跑。
 # 铁律 3/4(2026-08-24 审计加固):UTC 前缀新文件 + 同名拒覆盖 + dirty 拒跑。
 set -u
 cd /root/projects/LLM_Quantization

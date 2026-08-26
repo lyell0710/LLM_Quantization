@@ -6,7 +6,7 @@
 
 ## 0. 开场一分钟:为什么量化(接 D1 机理)
 
-decode 是权重带宽受限(自家 vllm/experiments#EXP-014:GDDR6X ~1008GB/s,
+decode 是权重带宽受限(自家 vllm/experiments#EXP-014《D1 MoE decode 分解》:GDDR6X ~1008GB/s,
 dense 7B bs=1 实测贴 roofline 77%)→ 权重每少一半 bit,decode 就快约一倍
 的物理空间。所以先有 W4A16(只压权重),后有 W8A8(算力路径也换 INT8)。
 **两个赛道,压的东西不同,快的 regime 不同**——这是全场的骨架。
@@ -58,7 +58,7 @@ dense 7B bs=1 实测贴 roofline 77%)→ 权重每少一半 bit,decode 就快约
 ## 5. 闭环:量化后怎么跑得快(3 分钟,接 serving 实测)
 
 - W4A16 兑现:Marlin 反量化融合进 GEMM——自家 serving 实测
-  (vllm/experiments#EXP-016)decode 快 23–48%;但大 M(prefill)反量化
+  (vllm/experiments#EXP-016《D4 FP8 vs W4A16 同卡对比》)decode 快 23–48%;但大 M(prefill)反量化
   开销显形,FP8 在 c128 TTFT 反超——**没有全域胜者,按 regime 选型**。
 - 收尾一句:离线算法(本仓三法)→ 存储格式(INT4 打包,pack↔fake 断言)
   → kernel(Marlin/FP8 路径)→ serving 数字,链路每一环都有自家实测。

@@ -20,7 +20,7 @@
 Q(W·s)/s,返回 {alpha, mse, qidx, scales, zeros, scaled_fq};
 search_scale_only() 只返回 s,供 awq_gptq 叠加臂(量化交给 GPTQ)。
 
-性能特征(实测锚,EXP-002):AWQ PPL 13.4127,收回 RTN 损失 31.9%
+性能特征(实测锚,EXP-002（AWQ 从零实现 + AWQ×GPTQ 叠加）):AWQ PPL 13.4127,收回 RTN 损失 31.9%
 (GPTQ 61.6%——一阶与二阶的差距即"二阶信息的定价");量化耗时 43 s;
 per-layer best-α 中位 0.30、主体 0.15–0.45,两个强 outlier 层顶到
 网格上限 0.95。本仓为 per-linear 简化 + 无 clip(EXP-002 §2 诚实标注),

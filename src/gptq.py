@@ -18,7 +18,7 @@ H = 2·X·Xᵀ 的 Cholesky 逆)补偿到"尚未量化"的列上,即 OBQ 的
 要求 blocksize == group_size(原因见断言处),就地把 layer.weight 改写为
 fake-quant 权重,返回 {loss, scales, zeros, qidx};use_hessian=False 即
 RTN 对照臂——与 GPTQ 臂共用同一量化网格,唯一差异 = 补偿开关,恢复量
-可完全归因于二阶补偿(EXP-001 的实验设计本身)。
+可完全归因于二阶补偿(EXP-001（GPTQ 从零实现）的实验设计本身)。
 
 性能特征(实测锚,EXP-001):Qwen2.5-0.5B,24 层×7 Linear,INT4-g128:
 GPTQ PPL 12.7600 / RTN 14.1154 / fp16 11.9152——二阶补偿收回 RTN 质量

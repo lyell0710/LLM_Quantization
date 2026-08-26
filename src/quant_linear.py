@@ -13,13 +13,13 @@
 
 接口契约(正确性):dequant(pack(qidx)) 与 GPTQ 输出的 fake-quant 权重
 逐元素相等(同 scale/zero 下反量化是确定映射),由 pack_check 验证。
-实测锚(EXP-001):全部 168 个 Linear 断言通过,最大误差 ≤7.3e-4(EXP-001 口径;EXP-002 臂在幅值感知容差下最大 1.22e-3),
+实测锚(EXP-001（GPTQ 从零实现）):全部 168 个 Linear 断言通过,最大误差 ≤7.3e-4(EXP-001 口径;EXP-002（AWQ 从零实现 + AWQ×GPTQ 叠加）臂在幅值感知容差下最大 1.22e-3),
 非零部分全部来自 scale/zero 以 half 存储的 fp16 舍入,而非打包本身。
 
 性能特征:存储 4.25 bit/权重(码 4 bit + fp16 scale/zero 摊到 g=128);
 forward 为"先反量化、再 fp GEMM"的教学实现,只为正确性闭环,不追求
 速度——生产内核(如 Marlin)做 fused dequant-GEMM,见
-vllm/experiments#EXP-016 的部署侧。
+vllm/experiments#EXP-016（D4 FP8 vs W4A16 同卡对比）的部署侧。
 """
 
 import torch

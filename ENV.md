@@ -7,7 +7,7 @@ provenance env 字段(不在此复制更多数字)。
 ## 主线环境(EXP-001~003 全部数据产自此)
 
 - Python venv:`/root/venvs/v0.25.1`(实验时 torch 2.11.0+cu130、
-  transformers 5.15.1、datasets;见 EXP-001 §0)
+  transformers 5.15.1、datasets;见 EXP-001《GPTQ 从零实现》§0)
 - GPU:NVIDIA RTX 4090 ×1,driver 610.57.04(raw provenance);
   显存峰值 ~6GB(EXP-001 §2),异地单卡 ≥8GB 即可
 - 模型:Qwen/Qwen2.5-0.5B(base,HF cache)

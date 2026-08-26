@@ -2,7 +2,7 @@
 
 > 目标是同时拿到三样东西:**代码能力**(从零实现关键路径)、**面试能力**
 > (能被追问三层不倒)、**记录**(数字可复算、口径可防御)。
-> 本仓 GPTQ(EXP-001 + docs/theory/01_gptq.md)是第一份按此执行的样例;
+> 本仓 GPTQ(EXP-001《GPTQ 从零实现》 + docs/theory/01_gptq.md)是第一份按此执行的样例;
 > 此前的 AWQ / SmoothQuant 实践缺的是第 4、5 步——补齐后同样入此模板。
 
 ## 第 1 步 · 先问"它在优化什么目标"(30 分钟,论文只读三处)
@@ -44,7 +44,7 @@
 - 精度:PPL 用**固定协议**(窗/步/同计分 token 集,写进结果 JSON),
   绝对值不跨协议比较,只做臂间相对比较。
 - 速度:量化的收益兑现在 kernel(W4A16 → Marlin 反量化融合,decode
-  带宽减半)——引用自己的 serving 实测(vllm/experiments#EXP-016),
+  带宽减半)——引用自己的 serving 实测(vllm/experiments#EXP-016《D4 FP8 vs W4A16 同卡对比》),
   并能讲反例(大 M 下反量化开销显形,FP8 反超 TTFT)。
 - 正确性:real quant 打包 ↔ fake quant 逐元素一致(pack_check 断言),
   这是"我真的实现了存储格式"的证据。

@@ -53,7 +53,7 @@ per-layer best α:中位数 0.30,主体 0.15–0.45,单层 α=0(激活均匀层)
   GPTQ 精修取整误差的**分配**,AWQ 重塑误差的**权重(难度)分布**;
   显著通道主导输出时,保护它们的一阶启发式就能拿到大头。
 - **Q: 网格搜到的 α 通常多大?** 经验 0.3–0.7 居多(本仓 per-layer α 分布
-  见 EXP-002 raw);α 贴 0 说明该层激活均匀、AWQ 无事可做。
+  见 EXP-002《AWQ 从零实现 + AWQ×GPTQ 叠加》raw);α 贴 0 说明该层激活均匀、AWQ 无事可做。
 - **Q: clip 是什么、为什么有用?** 收缩组内 max_val 再量化(牺牲极值精度换
   普遍步长变细),AutoAWQ 与 scale 搜索联用;本仓未实现(见 EXP-002 §7,
   既有 AutoAWQ 实践中已做过 grid clip)。
@@ -68,5 +68,5 @@ per-layer best α:中位数 0.30,主体 0.15–0.45,单层 α=0(激活均匀层)
 - 参考实现:AutoAWQ `quantizer.py`(scale/clip 网格;块级输出 MSE——
   本仓简化为 per-linear MSE,EXP-002 §7 注明)。
 - 部署侧:W4A16 kernel 反量化融合(Marlin 家族),serving 实测
-  vllm/experiments#EXP-016。
+  vllm/experiments#EXP-016《D4 FP8 vs W4A16 同卡对比》。
 - 本仓实现:`src/awq.py`(_search / search_and_apply / search_scale_only)。

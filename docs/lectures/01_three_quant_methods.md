@@ -92,7 +92,7 @@ Bennett(BSTJ 27(3):446-472, 1948);数值线性代数 Higham,
 
 **没有量化,世界会怎样。** LLM 推理的 decode 阶段每生成一个 token,都要把
 全部权重从显存读一遍——权重带宽是第一瓶颈(实测证据见
-vllm/experiments#EXP-014,转引于 `docs/talk/quant_walkthrough.md` §0)。
+vllm/experiments#EXP-014《D1 MoE decode 分解》,转引于 `docs/talk/quant_walkthrough.md` §0)。
 fp16 权重每参数 16 bit;若能压到 4 bit,同一张卡上 decode 的权重读取量
 即降为 1/4,显存占用同理。这就是 W4A16 赛道的物理动机。W8A8 赛道另有所图:
 激活也换成 INT8,连算力路径(INT8 TensorCore)一起换,prefill/大 batch 受益。
@@ -281,15 +281,15 @@ affected"。SmoothQuant(arXiv:2211.10438)§3 给出的量级更大:"The scale of
 outliers in activations is ~100× larger than most of the activation values."
 
 本仓侧:我们没有直接测 outlier 幅值倍数(**本仓未测**),但有两条间接证据。
-①AWQ 的 per-layer best-α 分布(EXP-002 §5,可从
+①AWQ 的 per-layer best-α 分布(EXP-002《AWQ 从零实现 + AWQ×GPTQ 叠加》§5,可从
 `data/raw/EXP-002/awq_g128.json` 复算)中位 0.30、主体 0.15–0.45,而有两层
 顶到网格上限 0.95——**同一模型内部各层的各向异性强度相差极大**;
-②W8A8 naive 臂只掉 +0.2075 PPL(EXP-003 §5),说明 0.5B 上激活 outlier 远
+②W8A8 naive 臂只掉 +0.2075 PPL(EXP-003《SmoothQuant 从零实现》§5),说明 0.5B 上激活 outlier 远
 没到让 per-token INT8 崩掉的程度。与 LLM.int8() 的相变结论并排看,结论一致:
 **0.5B 在相变之下**。
 
 实测代价:同一 INT4-g128 网格下,RTN 把 Qwen2.5-0.5B 的 wikitext-2 PPL 从
-11.9152 打到 14.1154(+2.2002;EXP-001 §5,`data/raw/EXP-001/rtn_g128.json`,
+11.9152 打到 14.1154(+2.2002;EXP-001《GPTQ 从零实现》§5,`data/raw/EXP-001/rtn_g128.json`,
 单轮确定性评测,下同)。三种方法都是对这笔"加权误差账"的不同回应:
 GPTQ 在固定网格内**重新分配**误差(二阶),AWQ **重塑**误差落点的难度分布
 (一阶),SmoothQuant 把难度在激活/权重两侧**搬家**(W8A8 专属)。
@@ -1770,7 +1770,7 @@ binary16 能精确表示 2048 以内的整数,这一步无损。pack↔fake 的�
   实现,只为正确性闭环(`src/quant_linear.py:20-22`);生产内核(vLLM 的
   Marlin 家族)做 fused dequant-GEMM,INT4 权重直接进寄存器再融合反量化
   ——速度差距在 kernel 层,不在算法层。serving 侧实测见
-  vllm/experiments#EXP-016:W4A16(Marlin)decode 快 23-48%,但大 M
+  vllm/experiments#EXP-016《D4 FP8 vs W4A16 同卡对比》:W4A16(Marlin)decode 快 23-48%,但大 M
   (prefill)下反量化开销显形,FP8 在 c128 TTFT 反超——按 regime 选型。
 - **AWQ 侧**:参考实现 `llm-awq/awq/quantize/auto_scale.py` 为**块级输出
   MSE**(对整个 decoder block 算 `(org_out - out).pow(2).mean()`)+ **共享

@@ -10,7 +10,7 @@
 把激活侧难度按 α 迁移到权重侧。迁移后激活通道 j 的 absmax 变为
 actmax_j^{1-α}·wmax_j^{1-α},权重侧列 absmax 变为 actmax_j^α·wmax_j^α:
 α=0.5 时两侧难度恰好几何均衡,α 越大激活越轻、权重越重——α 是真实的
-权衡旋钮,不是"加了就好"(EXP-003 的 α=0.25 反例臂即为此设)。
+权衡旋钮,不是"加了就好"(EXP-003（SmoothQuant 从零实现）的 α=0.25 反例臂即为此设)。
 
 接口契约:apply_w8a8(linear, actmax, alpha) 就地把权重改写为
 fakeq(W·diag(s)) 并注册 pre-hook 做 fakeq(x/s);actmax 须由调用方在改动

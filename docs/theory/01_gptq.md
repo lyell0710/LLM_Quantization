@@ -73,10 +73,10 @@ GPTQ 把"权重量化"从逐元素最近取整(RTN)升级为**逐列量化 + 用
   常见"都试,PPL/任务分说话"。二者正交于 SmoothQuant(那是 W8A8 的事)。
 - **Q: 量化完怎么跑得快?** 存 INT4 + scale/zero,推理时 kernel 内
   反量化融合进 GEMM(Marlin 类),decode 阶段权重读取带宽减半再减半
-  ——衔接 vllm/experiments#EXP-016:W4A16(Marlin)decode 快 23–48%,
+  ——衔接 vllm/experiments#EXP-016《D4 FP8 vs W4A16 同卡对比》:W4A16(Marlin)decode 快 23–48%,
   但大 M(prefill)反量化开销显形,FP8 在 c128 TTFT 反超。
 - **Q: 校准集选错会怎样?** H 偏了补偿方向就偏;域外校准可测出 PPL 退化
-  (留作 EXP-002 的可选对照)。
+  (留作 EXP-002《AWQ 从零实现 + AWQ×GPTQ 叠加》的可选对照)。
 
 ## 5. 延伸(源码/论文锚点)
 
@@ -86,6 +86,6 @@ GPTQ 把"权重量化"从逐元素最近取整(RTN)升级为**逐列量化 + 用
   percdamp、cholesky(inverse(H), upper) 三处与本仓一致)。
 - 部署侧:vLLM `AutoGPTQLinearMethod → MarlinLinearKernel`
   (vllm/experiments#EXP-016 日志原文);EPLB×GPTQ 的上游缺口
-  `routed_experts.py:139-152`(vllm/experiments#EXP-017)。
+  `routed_experts.py:139-152`(vllm/experiments#EXP-017《D5 EPLB gate》)。
 - 本仓实现:`src/gptq.py`(算法)、`src/quant_linear.py`(INT4 打包与
   real-quant 前向,pack↔fake 一致性由 pack_check 断言)。

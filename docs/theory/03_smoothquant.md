@@ -58,7 +58,7 @@ outlier 严重度增长"(论文主战场是 OPT-13B+)。0.25→0.75 单调改善
   "激活侧难度搬走"(方向是把激活缩小)。同一恒等式,两个相反的使用动机。
 - **Q: W8A8 什么时候比 W4A16 快?** 算力受限段(prefill/大 batch,INT8
   TensorCore 双倍吞吐);decode 带宽受限段 W4A16 的 4-bit 权重更省
-  ——与 vllm/experiments#EXP-016 的 regime 分化结论同构。
+  ——与 vllm/experiments#EXP-016《D4 FP8 vs W4A16 同卡对比》的 regime 分化结论同构。
 
 ## 5. 延伸(源码/论文锚点)
 

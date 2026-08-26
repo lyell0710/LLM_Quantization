@@ -3,7 +3,7 @@
 
 naive = 权重 per-输出行对称 INT8 + 激活 per-token 对称 INT8(无迁移);
 smooth = 先按 s_j = actmax_j^α / wmax_j^{1-α} 迁移再同样量化。两臂共用
-同一 INT8 格式与管线,唯一差异 = 是否迁移(EXP-003 的控制变量设计)。
+同一 INT8 格式与管线,唯一差异 = 是否迁移(EXP-003（SmoothQuant 从零实现）的控制变量设计)。
 PPL 协议与 run_w4a16.py 完全一致(窗 2048/步 1536,同计分 token 集)——
 直接 import 其 get_calib/eval_ppl,协议一致性由共用代码保证而非口头约定。
 

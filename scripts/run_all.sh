@@ -1,5 +1,5 @@
 #!/bin/bash
-# EXP-001 三臂批跑(fp16/rtn/gptq)。
+# EXP-001（GPTQ 从零实现）三臂批跑(fp16/rtn/gptq)。
 # 铁律 3/4(2026-08-24 审计加固):
 #   - raw 不覆盖:输出一律 UTC 前缀新文件,同名已存在则拒跑;
 #   - provenance sha 必须指向真实代码版本:worktree dirty 拒跑(EXP-001 §7 勘注教训)。

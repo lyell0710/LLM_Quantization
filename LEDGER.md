@@ -12,11 +12,11 @@
 
 ## 实验台账
 
-| 编号 | slug | 日期 | 状态 | 关键数字(指针) |
-|---|---|---|---|---|
-| [EXP-001](records/EXP-001_gptq_from_scratch.md) | gptq_from_scratch | 2026-08-23 | 完成 | GPTQ 收回 RTN 损失 61.6%(12.76/14.12/11.92 → data/raw/EXP-001/) |
-| [EXP-002](records/EXP-002_awq_and_stack.md) | awq_and_stack | 2026-08-23 | 完成 | AWQ 31.9%;AWQ+GPTQ 62.6%;per-layer α 中位 0.30(→ data/raw/EXP-002/) |
-| [EXP-003](records/EXP-003_smoothquant_w8a8.md) | smoothquant_w8a8 | 2026-08-23 | 完成 | smooth α=.75 收回 naive W8A8 缺口 48%(12.02/12.12 → data/raw/EXP-003/) |
+| 编号 | 名称 | slug | 日期 | 状态 | 关键数字(指针) |
+|---|---|---|---|---|---|
+| [EXP-001](records/EXP-001_gptq_from_scratch.md) | GPTQ 从零实现:INT4-g128 三臂对照(fp16 / RTN / GPTQ) | gptq_from_scratch | 2026-08-23 | 完成 | GPTQ 收回 RTN 损失 61.6%(12.76/14.12/11.92 → data/raw/EXP-001/) |
+| [EXP-002](records/EXP-002_awq_and_stack.md) | AWQ 从零实现 + AWQ×GPTQ 叠加(W4A16 赛道补全) | awq_and_stack | 2026-08-23 | 完成 | AWQ 31.9%;AWQ+GPTQ 62.6%;per-layer α 中位 0.30(→ data/raw/EXP-002/) |
+| [EXP-003](records/EXP-003_smoothquant_w8a8.md) | SmoothQuant 从零实现:W8A8 赛道 + α 扫描 | smoothquant_w8a8 | 2026-08-23 | 完成 | smooth α=.75 收回 naive W8A8 缺口 48%(12.02/12.12 → data/raw/EXP-003/) |
 
 ## 待办 / backlog
 

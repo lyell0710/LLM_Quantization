@@ -94,7 +94,7 @@ if use_hessian and i2 < self.columns:
     W[:, i2:] -= Err1 @ Hinv[i1:i2, i2:]     # <- 块间 lazy update:批量补偿后续列
 ```
 
-`use_hessian` 开关即 EXP-001 的实验设计本身:RTN 臂与 GPTQ 臂共用同一 `GroupQuantizer` 与量化网格,唯一差异为补偿开关,61.6% 的恢复量因此可完全归因于二阶补偿机制。INT4 打包与 pack/fake 断言见 [src/quant_linear.py](src/quant_linear.py);AWQ 的 α 网格搜索见 [src/awq.py](src/awq.py),SmoothQuant 迁移见 [src/smoothquant.py](src/smoothquant.py)。
+`use_hessian` 开关即 EXP-001《GPTQ 从零实现》的实验设计本身:RTN 臂与 GPTQ 臂共用同一 `GroupQuantizer` 与量化网格,唯一差异为补偿开关,61.6% 的恢复量因此可完全归因于二阶补偿机制。INT4 打包与 pack/fake 断言见 [src/quant_linear.py](src/quant_linear.py);AWQ 的 α 网格搜索见 [src/awq.py](src/awq.py),SmoothQuant 迁移见 [src/smoothquant.py](src/smoothquant.py)。
 
 原理笔记(五节体:结论/机制/本仓实证/面试 Q&A/延伸):[01_gptq](docs/theory/01_gptq.md),[02_awq](docs/theory/02_awq.md),[03_smoothquant](docs/theory/03_smoothquant.md)。学习方法论见 [docs/HOW_TO_LEARN_A_QUANT_METHOD.md](docs/HOW_TO_LEARN_A_QUANT_METHOD.md),讲解提纲见 [docs/talk/quant_walkthrough.md](docs/talk/quant_walkthrough.md)。
 
@@ -118,9 +118,9 @@ $V scripts/run_w8a8.py  --mode {fp16|naive|smooth} [--alpha 0.5] --out <json>
 
 | 记录 | 结论 |
 |---|---|
-| [EXP-001:GPTQ 从零实现](records/EXP-001_gptq_from_scratch.md) | 二阶误差补偿收回 RTN 质量损失 61.6%;INT4 打包 168/168 层逐元素断言通过 |
-| [EXP-002:AWQ 与叠加](records/EXP-002_awq_and_stack.md) | 一阶 best-scale 收回 31.9%;AWQ+GPTQ 叠加 62.6%,方向正交但 0.5B 上高度重叠 |
-| [EXP-003:SmoothQuant W8A8](records/EXP-003_smoothquant_w8a8.md) | α=0.75 收回 naive W8A8 缺口 48%;α=0.25 反例更差,收益随模型规模增长 |
+| [EXP-001 GPTQ 从零实现:INT4-g128 三臂对照(fp16 / RTN / GPTQ)](records/EXP-001_gptq_from_scratch.md) | 二阶误差补偿收回 RTN 质量损失 61.6%;INT4 打包 168/168 层逐元素断言通过 |
+| [EXP-002 AWQ 从零实现 + AWQ×GPTQ 叠加(W4A16 赛道补全)](records/EXP-002_awq_and_stack.md) | 一阶 best-scale 收回 31.9%;AWQ+GPTQ 叠加 62.6%,方向正交但 0.5B 上高度重叠 |
+| [EXP-003 SmoothQuant 从零实现:W8A8 赛道 + α 扫描](records/EXP-003_smoothquant_w8a8.md) | α=0.75 收回 naive W8A8 缺口 48%;α=0.25 反例更差,收益随模型规模增长 |
 
 ## 测量方法
 
@@ -131,7 +131,7 @@ $V scripts/run_w8a8.py  --mode {fp16|naive|smooth} [--alpha 0.5] --out <json>
 
 ## 相关项目
 
-- [vllmExperience](https://github.com/lyell0710/vllmExperience):vLLM serving 侧证据仓;本仓 GPTQ 离线算法与其 EXP-016(GPTQ-Int4+Marlin 在线部署)构成「离线算法到在线部署」完整链(EXP-001 §8)。
+- [vllmExperience](https://github.com/lyell0710/vllmExperience):vLLM serving 侧证据仓;本仓 GPTQ 离线算法与其 vllm/experiments#EXP-016《D4 FP8 vs W4A16 同卡对比》(GPTQ-Int4+Marlin 在线部署)构成「离线算法到在线部署」完整链(EXP-001 §8)。
 - [Kernel_Optimazation](https://github.com/lyell0710/Kernel_Optimazation):CUDA kernel 优化证据仓;本仓的控制变量/反例臂方法论与其同源。
 - [llm-engine](https://github.com/lyell0710/llm-engine):推理引擎实践仓。
 - LLMQT_Example:早期 AutoAWQ 侧量化实践,已连完整 git 历史并入本仓 `llmqt_example/`。

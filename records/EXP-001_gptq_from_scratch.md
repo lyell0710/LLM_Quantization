@@ -30,9 +30,9 @@ INT4),验证可证伪假设(阈值跑前锁定):**同一量化网格下,GPTQ 的
 ## 3. 步骤
 
 `bash scripts/run_all.sh` = 三次 `run_gptq.py --mode {fp16|rtn|gptq}
---group-size 128`(勘注 2026-08-24:run_gptq.py 已于 EXP-002 收编时改名为
+--group-size 128`(勘注 2026-08-24:run_gptq.py 已于 EXP-002《AWQ 从零实现 + AWQ×GPTQ 叠加》收编时改名为
 scripts/run_w4a16.py,见 §7);每臂结束即评 PPL(wikitext-2 test,窗 2048/步 1536,
-与 vllm/experiments#EXP-016 同族协议,三臂同计分 token 集 298302 tok)。
+与 vllm/experiments#EXP-016《D4 FP8 vs W4A16 同卡对比》同族协议,三臂同计分 token 集 298302 tok)。
 
 ## 4. 原始数据
 

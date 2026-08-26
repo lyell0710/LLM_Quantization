@@ -67,7 +67,7 @@
 - **做了什么**:逐条闭环外部审计确认的 9 项问题——①run_all*.sh 改 UTC 前缀
   新文件 + 同名拒覆盖 + worktree dirty 拒跑(旧固定命名 raw 在各 manifest 标
   grandfather);②README 顶部加"无远端待用户建仓"警示(不代建远端);
-  ③EXP-001 §7 勘注 sha=worktree(代码即 274acb2 所提交内容)+ README
+  ③EXP-001《GPTQ 从零实现》§7 勘注 sha=worktree(代码即 274acb2 所提交内容)+ README
   "provenance 全"改如实;④EXP-001 §3/§7 勘注 run_gptq.py→run_w4a16.py 改名;
   ⑤新建根 ENV.md(链 llmqt_example/ENV.md 为子范围);⑥records/TEMPLATE.md
   自 vllm/experiments 拷入;⑦scripts/plot_alpha_dist.py 纯 CPU 出
@@ -76,7 +76,7 @@
 - **为什么**:审计收尾;硬约束(raw 不可变 / GPU 被占禁跑 / 禁建远端)下
   全部以"勘注留痕 + 脚本加固 + 新增文档"完成,零重跑、零改 raw 本体。
 - **关键数字**:无新测量。fig1 由既有 raw 重算:per-layer best-α 中位 0.30,
-  n=168 层,0.95 两层(data/raw/EXP-002/awq_g128.json,与 EXP-002 §5 一致)。
+  n=168 层,0.95 两层(data/raw/EXP-002/awq_g128.json,与 EXP-002《AWQ 从零实现 + AWQ×GPTQ 叠加》§5 一致)。
 - **产物路径**:scripts/run_all{,2}.sh、scripts/plot_alpha_dist.py、
   figures/fig1_awq_alpha_dist.png、ENV.md、records/TEMPLATE.md、
   llmqt_example/README.md、data/raw/EXP-00{1,2,3}/manifest.txt(勘注)、
@@ -96,7 +96,7 @@
 - **为什么**:秋招投递前门面化——面试官 30 秒扫读可见数据/图/代码/方法论;
   数字全部走 raw 复算或现行文档转录,不新造。
 - **关键数字**:fig2 复算 62.6 / 61.6 / 31.9 / 48.5%,与 records 一致
-  (48.5% 即 EXP-003 §6 取整表述的 48%,图脚注注明);无新增测量。
+  (48.5% 即 EXP-003《SmoothQuant 从零实现》§6 取整表述的 48%,图脚注注明);无新增测量。
 - **产物**:README.md、scripts/plot_recovery.py、figures/fig2_recovery_rates.png、
   本节。
 - **下一步**:用户建远端 github.com/lyell0710/LLM_Quantization 后 push;
