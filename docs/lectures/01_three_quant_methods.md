@@ -102,7 +102,7 @@ GPTQ、AWQ、SmoothQuant 这三种主流训练后量化（PTQ）方法，各自�
 ### 2.1 三条贯穿全篇的公理
 
 - **公理 A（度量必须取在输出空间）**：优化目标只有与推理在乎的量一致才有意义。RTN 最小化 $\|W-\hat W\|^2$，GPTQ 最小化 $\|WX-QX\|^2$，AWQ 的网格搜索直接用输出 MSE 打分，SmoothQuant 的 α 也只能用端到端质量来选。三种方法的分歧全在"怎么逼近输出误差"，没有一种回到权重空间。
-- **公理 B（等价变换是免费的自由度，但只是搬家）**： $y = (X\，\mathrm{diag}(s)^{-1})(\mathrm{diag}(s)W^\top)$ 对任意正 $s$ 严格成立（逐元素验证即可），所以量化前后可以任意换坐标系。但恒等变换不消灭难度：它只把难度从一侧搬到另一侧，或在一组通道之间重新分配。**任何声称 "缩放让误差凭空变小"的说法都缺了后半句：代价挂在谁头上。**
+- **公理 B（等价变换是免费的自由度，但只是搬家）**： $y = (X\,\mathrm{diag}(s)^{-1})(\mathrm{diag}(s)W^\top)$ 对任意正 $s$ 严格成立（逐元素验证即可），所以量化前后可以任意换坐标系。但恒等变换不消灭难度：它只把难度从一侧搬到另一侧，或在一组通道之间重新分配。**任何声称 "缩放让误差凭空变小"的说法都缺了后半句：代价挂在谁头上。**
 - **公理 C（每个误差都要有账）**：一个数值实现里的每一处残差都必须能被归因到唯一来源。本仓 pack↔fake 断言之所以能立，正是因为反量化路径上只剩一处降精（scale 的 half 存储），残差因此可以被精确定界（§3.6.2）。
 
 ### 2.2 三方法的坐标图:各自动了哪个自由度
@@ -140,13 +140,13 @@ $q = \mathrm{clamp}(\mathrm{round}(w/s) + z,\ 0,\ 2^b{-}1)$,  $\hat w = (q - z)\
 
 - 为什么 $s = (w_{max}-w_{min})/(2^b-1)$：$2^b$ 个刻度铺满区间，格距 = 区间长度 /（格数−1），两端各占一格。这是"端点对齐"约定，$w_{min}$ 落码 0、 $w_{max}$ 落码 $2^b-1$，两端精确可表示。另一种约定（除以 $2^b$）让格心对齐、两端各留半格；两种都自洽，但**混用会让 scale 差 $2^b/(2^b-1)$ 倍**，INT4 下 6.7%，足以让臂间比较失真。本仓统一端点对齐（`src/gptq.py:45` 的 `maxq = 2**bits - 1`）。
 - 为什么要 zero-point $z = \mathrm{round}(-w_{min}/s)$：权重组的 min/max 通常不关于 0 对称，对称量化会浪费半边码域；z 把网格平移到贴合实际区间。取 round 是因为 z 必须是整数——否则 dequant 的 $(q-z)s$ 里 z 要存浮点， 元数据翻倍且失去整数减法。round 引入的偏移最多半格，被 clamp 吸收。
-- 为什么要强制 $0 \in [w_{min}， w_{max}]$（`src/gptq.py:51-52` 的 clamp）： 保证实数 0 精确可表示，且全正/全负组的 z 不越码域。以全正组为例，不 clamp 时 $z = \mathrm{round}(-w_{min}/s) < 0$，而码域下界是 0，dequant 系统性偏移； clamp 后 $w_{min}\le 0 \Rightarrow z \ge 0$ 必然成立。
+- 为什么要强制 $0 \in [w_{min}, w_{max}]$（`src/gptq.py:51-52` 的 clamp）： 保证实数 0 精确可表示，且全正/全负组的 z 不越码域。以全正组为例，不 clamp 时 $z = \mathrm{round}(-w_{min}/s) < 0$，而码域下界是 0，dequant 系统性偏移； clamp 后 $w_{min}\le 0 \Rightarrow z \ge 0$ 必然成立。
 - 两道防除零：全零组把 $w_{max}$ 顶成 1(`src/gptq.py:54`)，否则 $s=0$ 让 $w/s$ 直接 NaN；再加 `clamp(min=1e-8)`(`src/gptq.py:55`)兜住近似全零组的下溢。**数学上退化、数值上必须显式处理**，是这类代码的常态。
 - 两条形状前提：本仓所有 in ∈ {896, 4864} 都被 128 整除（无残缺组；残缺组由 `src/awq.py:55` 的 `min((g+1)*group_size, cols)` 处理，但其极值统计样本更少、格距更抖，换模型时要重查），且都是偶数（两码一字节的前提， `src/quant_linear.py:33` 的断言）。
 
 #### 3.1.2 舍入误差 $s^2/12$ 的成立条件与失效边界
 
-round 到最近刻度，单点误差落在 $[-s/2， s/2]$。"均方误差 $s^2/12$"这个常用结论来自把量化误差建模为该区间上的**均匀分布**，方差 $\int_{-s/2}^{s/2} e^2 \cdot \frac{1}{s}\，\mathrm{d}e = s^2/12$。这个模型的原始出处是 Bennett 的量化噪声谱分析(Bell System Technical Journal 27(3)：446-472, 1948)；其严格成立需要"量化误差与信号统计独立且在格内均匀" 这类条件（Widrow 的量化定理给出充分条件：信号特征函数带限）。
+round 到最近刻度，单点误差落在 $[-s/2, s/2]$。"均方误差 $s^2/12$"这个常用结论来自把量化误差建模为该区间上的**均匀分布**，方差 $\int_{-s/2}^{s/2} e^2 \cdot \frac{1}{s}\,\mathrm{d}e = s^2/12$。这个模型的原始出处是 Bennett 的量化噪声谱分析(Bell System Technical Journal 27(3)：446-472, 1948)；其严格成立需要"量化误差与信号统计独立且在格内均匀" 这类条件（Widrow 的量化定理给出充分条件：信号特征函数带限）。
 
 **在本仓的设定下，这三个条件全部被破坏，所以 $s^2/12$ 只能当量级参照：**
 
@@ -154,13 +154,13 @@ round 到最近刻度，单点误差落在 $[-s/2， s/2]$。"均方误差 $s^2/
 2. **s 与数据强相关**：$s$ 由组内极值决定，极值大的组格距也大——误差与数据不独立。
 3. **权重不是白噪声**：同一输入通道上的权重跨输出行高度相关，这正是 GPTQ 能用 $H$ 做补偿的前提。
 
-**一个用得上的量级折算（本讲义推导）。** 设组内 128 个权重近似 iid $\mathcal{N}(0，\sigma^2)$。128 个标准正态样本极大值的期望约 2.58σ（数量级参照，精确值随阶统计量表而异），故极差约 5.16σ， $s \approx 5.16\sigma/15 = 0.344\sigma$，舍入 RMS 误差 $\approx s/\sqrt{12} = 0.099\sigma$——即**约 10% 的相对权重扰动**。换成 per-tensor（整层 802816 个元素，q_proj 尺寸）：极大值期望约 4.8σ， $s\approx 9.6\sigma/15 = 0.64\sigma$，RMS $\approx 0.185\sigma$。两者之比 $0.099/0.185 \approx 0.54$：**g=128 相对 per-tensor 把 RTN 的权重 RMS 误差砍掉约一半**，代价是每 128 个权重多存 32 bit 元数据。这就是"g=128 是行业默认"背后可算的那笔账——不是玄学，是极值统计与元数据开销的交点。（前提：iid 高斯，真实权重不满足；此处只用于说明量级与单调方向。）
+**一个用得上的量级折算（本讲义推导）。** 设组内 128 个权重近似 iid $\mathcal{N}(0,\sigma^2)$。128 个标准正态样本极大值的期望约 2.58σ（数量级参照，精确值随阶统计量表而异），故极差约 5.16σ， $s \approx 5.16\sigma/15 = 0.344\sigma$，舍入 RMS 误差 $\approx s/\sqrt{12} = 0.099\sigma$——即**约 10% 的相对权重扰动**。换成 per-tensor（整层 802816 个元素，q_proj 尺寸）：极大值期望约 4.8σ， $s\approx 9.6\sigma/15 = 0.64\sigma$，RMS $\approx 0.185\sigma$。两者之比 $0.099/0.185 \approx 0.54$：**g=128 相对 per-tensor 把 RTN 的权重 RMS 误差砍掉约一半**，代价是每 128 个权重多存 32 bit 元数据。这就是"g=128 是行业默认"背后可算的那笔账——不是玄学，是极值统计与元数据开销的交点。（前提：iid 高斯，真实权重不满足；此处只用于说明量级与单调方向。）
 
 #### 3.1.3 粒度谱系与两种压缩比口径
 
 **粒度谱系**（scale/zero 共享到什么范围）：per-tensor（整层 1 套）→ per-channel/per-输出行（out 套）→ per-group（本仓 g=128，每输出行每 128 个输入维一套）→ 极限是 per-element（等于不量化，信息全搬进 scale）。粒度越细， 网格越贴合局部分布、误差越小，代价是元数据存储与 kernel 复杂度。本仓 W4A16 的存储账：码 4 bit + fp16 scale/zero 各 16 bit 摊到 128 个权重， $4 + 32/128 = 4.25$ bit/权重（`src/quant_linear.py:19`）。激活侧另有一条谱系： per-tensor 静态 → per-token 动态（本仓 W8A8 用）→ per-channel——最后一档与 INT8 GEMM 的数学不相容，见 §3.5.2，这是 SmoothQuant 存在的理由。
 
-**压缩比有两种口径，不能混说（本讲义推导，数据源为 config.json 与 `scripts/run_w4a16.py:46-48` 的量化范围）。** 先把参数数出来：每层 7 个 Linear 合计 $14{，}909{，}440$ 个参数（q/o 各 802,816，k/v 各 114,688，gate/up/down 各 4,358,144），24 层共 **357,826,560** 个被量化参数；tie 的 embedding 表 $151{，}936\times896 = 136{，}134{，}656$ 个参数**不量化**（lm_head 复用它， `scripts/run_w4a16.py:45` 按惯例排除），占全模型约 27.6%。
+**压缩比有两种口径，不能混说（本讲义推导，数据源为 config.json 与 `scripts/run_w4a16.py:46-48` 的量化范围）。** 先把参数数出来：每层 7 个 Linear 合计 $14{,}909{,}440$ 个参数（q/o 各 802,816，k/v 各 114,688，gate/up/down 各 4,358,144），24 层共 **357,826,560** 个被量化参数；tie 的 embedding 表 $151{,}936\times896 = 136{,}134{,}656$ 个参数**不量化**（lm_head 复用它， `scripts/run_w4a16.py:45` 按惯例排除），占全模型约 27.6%。
 
 | 口径 | fp16 | INT4-g128 | 压缩比 |
 |---|---|---|---|
@@ -205,7 +205,7 @@ $\Delta E \approx \Delta E_0 + g^\top \delta w + \tfrac12 \delta w^\top H \delta
 
 #### 3.3.3 OBQ:把"删"换成"量化"
 
-OBQ(Frantar， Singh & Alistarh， "Optimal Brain Compression"， arXiv：2208.11580)的替换只有一处：约束从"$w_q$ 打到 0"改成"$w_q$ 打到最近的网格点 $\mathrm{quant}(w_q)$"。GPTQ 论文 §3(Background)把它写成（该文的 Equation 2）：
+OBQ(Frantar， Singh & Alistarh， "Optimal Brain Compression"， arXiv:2208.11580)的替换只有一处：约束从"$w_q$ 打到 0"改成"$w_q$ 打到最近的网格点 $\mathrm{quant}(w_q)$"。GPTQ 论文 §3(Background)把它写成（该文的 Equation 2）：
 
 $w_q = \arg\min_{w_q}\ \dfrac{(\mathrm{quant}(w_q)-w_q)^2}{[H_F^{-1}]_{qq}}$,  $\delta_F = -\dfrac{w_q - \mathrm{quant}(w_q)}{[H_F^{-1}]_{qq}}\cdot (H_F^{-1})_{:,q}$
 
@@ -229,9 +229,9 @@ $L(\delta) = \|\hat w^\top X - w^\top X\|^2 = \|\delta^\top X\|^2 = \delta^\top 
 
 1. $\mathcal{L} = \tfrac{1}{2}\delta^\top H\delta + \lambda(e_j^\top\delta + \varepsilon)$—— 等式约束的标准拉格朗日化。
 2. $\partial\mathcal{L}/\partial\delta = H\delta + \lambda e_j = 0 \Rightarrow \delta = -\lambda H^{-1} e_j$—— H 正定（阻尼保证，见 §3.3.9）故可逆，凸问题一阶条件即全局最优。
-3. 代回约束：$e_j^\top\delta = -\lambda\,[H^{-1}]_{jj} = -\varepsilon \Rightarrow \lambda = \varepsilon / [H^{-1}]_{jj}$—— $e_j^\top H^{-1} e_j$ 就是 $H^{-1}$ 的第（j,j） 元。
-4. 最优补偿：$\delta^* = -\dfrac{\varepsilon}{[H^{-1}]_{jj}}\， H^{-1} e_j$—— 方向是 $H^{-1}$ 第 j 列，强度按其对角元归一。
-5. 代回目标：$\Delta L = \tfrac{1}{2}\delta^{*\top} H \delta^* = \dfrac{\varepsilon^2}{2\，[H^{-1}]_{jj}}$—— 与 OBS 的 $L_q$ 同形，把 $w_q$ 换成量化残差 $\varepsilon$。这就是代码里那个"量纲未标定、只作诊断"的逐列 loss(EXP-001 §7)。
+3. 代回约束：$e_j^\top\delta = -\lambda\,[H^{-1}]_{jj} = -\varepsilon \Rightarrow \lambda = \varepsilon / [H^{-1}]_{jj}$—— $e_j^\top H^{-1} e_j$ 就是 $H^{-1}$ 的第（j，j） 元。
+4. 最优补偿：$\delta^* = -\dfrac{\varepsilon}{[H^{-1}]_{jj}}\, H^{-1} e_j$—— 方向是 $H^{-1}$ 第 j 列，强度按其对角元归一。
+5. 代回目标：$\Delta L = \tfrac{1}{2}\delta^{*\top} H \delta^* = \dfrac{\varepsilon^2}{2\,[H^{-1}]_{jj}}$—— 与 OBS 的 $L_q$ 同形，把 $w_q$ 换成量化残差 $\varepsilon$。这就是代码里那个"量纲未标定、只作诊断"的逐列 loss(EXP-001 §7)。
 
 第 5 步值得多说一句：$\Delta L$ 随 $[H^{-1}]_{jj}$ **增大而减小**——该值大意味着方向"软"（激发弱），量化代价小；小则是"硬"方向，同样的 $\varepsilon$ 代价更大。act-order(§3.3.10)排的正是这个量。
 
@@ -241,9 +241,9 @@ OBQ 每次挑 $\Delta L$ 最小的列，每列都要对"尚未量化的列集 F"
 
 $[H_F]^{-1} = [H^{-1}]_{F} - [H^{-1}]_{F,F^c}\,([H^{-1}]_{F^c})^{-1}\,[H^{-1}]_{F^c,F}$
 
-即：对 $H^{-1}$ 关于已量化块 $F^c$ 取 Schur 补。**为什么成立**：把 $H$ 与 $H^{-1}$ 都按 $(F， F^c)$ 分块，写出 $HH^{-1}=I$ 的四个块方程消去交叉块即得（标准结果）。**成立条件**：$[H^{-1}]_{F^c}$ 可逆——$H$ 正定 ⇒ $H^{-1}$ 正定 ⇒ 任意主子阵正定 ⇒ 可逆。阻尼（§3.3.9）保证的就是这个"正定"。
+即：对 $H^{-1}$ 关于已量化块 $F^c$ 取 Schur 补。**为什么成立**：把 $H$ 与 $H^{-1}$ 都按 $(F, F^c)$ 分块，写出 $HH^{-1}=I$ 的四个块方程消去交叉块即得（标准结果）。**成立条件**：$[H^{-1}]_{F^c}$ 可逆——$H$ 正定 ⇒ $H^{-1}$ 正定 ⇒ 任意主子阵正定 ⇒ 可逆。阻尼（§3.3.9）保证的就是这个"正定"。
 
-GPTQ 论文 §4 的 Step 1(Arbitrary Order Insight)说明：按固定列序量化精度几乎不掉，理由是"any fixed order may perform well， especially on large models"——贪心排序的收益要与"越晚量化剩下可调权重越少"相抵。固定序把运行时从 $O(d_{row}\cdot d_{col}^3)$ 降到 $O(\max\{d_{row}\cdot d_{col}^2， d_{col}^3\})$，即 $\min\{d_{row}， d_{col}\}$ 倍加速。**注意这是经验性论断**（论文用 "may perform well" 的措辞），不是定理；仓库后来又把 act-order 加回来，恰说明 outlier 严重时顺序仍要紧。
+GPTQ 论文 §4 的 Step 1(Arbitrary Order Insight)说明：按固定列序量化精度几乎不掉，理由是"any fixed order may perform well， especially on large models"——贪心排序的收益要与"越晚量化剩下可调权重越少"相抵。固定序把运行时从 $O(d_{row}\cdot d_{col}^3)$ 降到 $O(\max\{d_{row}\cdot d_{col}^2, d_{col}^3\})$，即 $\min\{d_{row}, d_{col}\}$ 倍加速。**注意这是经验性论断**（论文用 "may perform well" 的措辞），不是定理；仓库后来又把 act-order 加回来，恰说明 outlier 严重时顺序仍要紧。
 
 #### 3.3.7 第 4 步:Cholesky 逆上三角为什么"恰好可用"
 
@@ -273,13 +273,13 @@ $\delta^*_{j:} = -\dfrac{\varepsilon}{U_{jj}^2}\cdot U_{jj}\,U_{j,j:} = -\dfrac{
 
 GPTQ 论文 §4 的 Step 2(Lazy Batch-Updates)按 **B=128 列**成块处理，论文称其带来"an order of magnitude speedup for very large models in practice"。本仓 `blocksize` 默认 128 且被断言等于 group_size(`src/gptq.py:136`)。
 
-**先证等价。** 逐列全宽更新是：对每个 j，$W_{：，j+1：} \mathrel{-}= \varepsilon_j u_{j，j+1：}$， 其中 $u = U$ 的第 j 行、$\varepsilon_j$ 是归一化后的误差。把 j 在一块 $[i_1， i_2)$ 内累加，对块外列 $c \ge i_2$ 的总更新是 $\sum_{j=i_1}^{i_2-1}\varepsilon_j U_{j，c}$，恰是矩阵乘 $\mathrm{Err}_1 \cdot U_{i_1：i_2，\ i_2：}$ 的第 c 列（`src/gptq.py:184`）。**逐列累加与一次 GEMM 逐位不同（浮点求和序不同）， 但数学上严格相同**——这是"数学结果与逐列全宽更新严格相同"这句注释的准确含义，写讲义时不要把它说成"逐位相同"。
+**先证等价。** 逐列全宽更新是：对每个 j，$W_{:,j+1:} \mathrel{-}= \varepsilon_j u_{j,j+1:}$， 其中 $u = U$ 的第 j 行、$\varepsilon_j$ 是归一化后的误差。把 j 在一块 $[i_1, i_2)$ 内累加，对块外列 $c \ge i_2$ 的总更新是 $\sum_{j=i_1}^{i_2-1}\varepsilon_j U_{j,c}$，恰是矩阵乘 $\mathrm{Err}_1 \cdot U_{i_1:i_2,\ i_2:}$ 的第 c 列（`src/gptq.py:184`）。**逐列累加与一次 GEMM 逐位不同（浮点求和序不同）， 但数学上严格相同**——这是"数学结果与逐列全宽更新严格相同"这句注释的准确含义，写讲义时不要把它说成"逐位相同"。
 
 **再算访存。** 朴素做法：每列对全宽 $W$ 做 rank-1 更新，读写 $O(\mathrm{rows}\times \mathrm{in})$ 字节，共 in 次 → 总访存 $O(\mathrm{rows}\times \mathrm{in}^2)$。以 down_proj（896×4864，fp32 工作副本） 为例：单次全宽读写 $2\times896\times4864\times4$ B $= 34.9$ MB，乘 4864 次 $\approx 170$ GB；而 4090 的显存带宽规格值是 1008 GB/s（NVIDIA Ada GPU Architecture 白皮书 Appendix A），**光这一层就要 0.17 s 的纯带宽下限， 24 层就是 4 s 起**，且这还只是 down_proj 一个 Linear（本讲义推导）。块化后块内更新只碰 $\mathrm{rows}\times B$ 的块（0.92 MB），块外更新每 128 列才做一次 → 总访存降到约 $1/B$ 量级。**这就是 lazy batch update 的全部动机： 不是省算力，是省带宽。**
 
 #### 3.3.9 阻尼 λ:三重作用与 1% 的来历
 
-校准样本有限或输入通道强共线时 H 近奇异，$H^{-1}$ 在弱激发方向的元素爆炸， 补偿量随之爆炸——本想救误差，反把权重毁了。加 $\lambda = \text{percdamp}\cdot\mathrm{mean}(\mathrm{diag}\，H)$ 的 ridge (`src/gptq.py:117-118`，percdamp=0.01)有三重效果：
+校准样本有限或输入通道强共线时 H 近奇异，$H^{-1}$ 在弱激发方向的元素爆炸， 补偿量随之爆炸——本想救误差，反把权重毁了。加 $\lambda = \text{percdamp}\cdot\mathrm{mean}(\mathrm{diag}\,H)$ 的 ridge (`src/gptq.py:117-118`，percdamp=0.01)有三重效果：
 
 ①**保证正定**：$H + \lambda I$ 的最小特征值至少 $\lambda$，Cholesky 必成功， §3.3.6 的 Schur 补前提随之成立；②**压回病态方向**：补偿强度 $\propto [H_F^{-1}]$，加 ridge 后弱激发方向的逆元被压到 $\le 1/\lambda$； ③**对整体量级自适应**：取"相对平均对角"而非绝对常数，这一条要与 `add_batch` 的运行均值配合才成立——H 已归一为 $(2/N)\sum xx^\top$，对角量级只反映激活强度，不随 token 数漂移。
 
@@ -313,7 +313,7 @@ AWQ 论文 §3.1(Improving LLM Quantization by Preserving 1% Salient Weights)先
 
 AWQ 不改取整规则，改坐标系：对通道 j 的权重先乘 $s_j>1$ 再量化，运行时等价除回：
 
-$y = XW^\top = (X\，\mathrm{diag}(s)^{-1})\，(\mathrm{diag}(s)\，W^\top)$—— 数学恒等，只改变误差落在哪里。
+$y = XW^\top = (X\,\mathrm{diag}(s)^{-1})\,(\mathrm{diag}(s)\,W^\top)$—— 数学恒等，只改变误差落在哪里。
 
 论文 §3.2 把误差写成（该文的表述） $\mathrm{Err}(Q(w)x) = \Delta\cdot\mathrm{RoundErr}(w/\Delta)\cdot x$， 缩放后 $\mathrm{Err}(Q(w\cdot s)(x/s)) = \Delta'\cdot\mathrm{RoundErr}(ws/\Delta')\cdot x\cdot(1/s)$， 两者之比为 $\dfrac{\Delta'}{\Delta}\cdot\dfrac{1}{s}$。
 
@@ -366,7 +366,7 @@ $\min_s\ \|\,Q(W\cdot\mathrm{diag}(s))\,\mathrm{diag}(s)^{-1}X - WX\,\|^2,\quad 
 
 三个设计决定，各有理由：①打分在**输出空间**（MSE 对 ref = XW^⊤），不在权重空间——优化目标必须与推理在乎的东西一致，这是全篇的主旋律； ②重要性代理用 absmean 不用 absmax——量通道的系统性幅值，不被单个极端 token 绑架；参考实现同口径（`get_act_scale` 为 `x.abs().view(-1, x.shape[-1]).mean(0)`）；③s 做几何归一（§3.4.4）。
 
-**为什么必须除回 s 再打分。** 代码是 `w_eff = fq / s.unsqueeze(0)` (`src/awq.py:120`)。若直接拿 `fq`(即 $Q(W\cdot s)$)对 ref 算 MSE，比较的是两个不同坐标系里的输出，$Q(Ws)X$ 与 $WX$ 天然差一个 $\mathrm{diag}(s)$， α 越大差得越多，搜索会永远选 α=0。**这个 bug 不报错，只让 AWQ 静默退化成 RTN**——PPL 只告诉你"AWQ 没用"，不告诉你哪错了。
+**为什么必须除回 s 再打分。** 代码是 `w_eff = fq / s.unsqueeze(0)` (`src/awq.py:120`)。若直接拿 `fq`（即 $Q(W\cdot s)$）对 ref 算 MSE，比较的是两个不同坐标系里的输出，$Q(Ws)X$ 与 $WX$ 天然差一个 $\mathrm{diag}(s)$， α 越大差得越多，搜索会永远选 α=0。**这个 bug 不报错，只让 AWQ 静默退化成 RTN**——PPL 只告诉你"AWQ 没用"，不告诉你哪错了。
 
 **为什么网格必须含 α=0，又为什么不含 α=1。** α=0 即 $s\equiv1$(RTN)， 是搜索的保底选项：**打分口径下结果不会劣于 RTN 起点**；EXP-002 的分布里恰有 1 层选中 α=0，保底被真实用到。论文搜索区间 [0,1]、grid size 20；本仓 `alpha = i / self.n_grid`，i∈[0,20)，取到 0.95 为止（`src/awq.py:109`）。 α=1 即 $s=a$，展布 $\rho$ 取最大值，常常过度。副作用是**顶到 0.95 的层究竟是"最优恰在 0.95"还是"被边界截断"，数据分不出来**——EXP-002 §7 记为可能欠搜索，§5.5 用 raw 分布给出区分判据。
 
@@ -378,7 +378,7 @@ $\min_s\ \|\,Q(W\cdot\mathrm{diag}(s))\,\mathrm{diag}(s)^{-1}X - WX\,\|^2,\quad 
 
 因此本仓 AWQ 的 31.9% 是"**per-linear 简化、无 clip** 口径下"的数字，不能拿去与参考实现的相对表现直接比——引用数字时这个定语不许丢。这同时是一个可讲的活例：简化的代价是可测的（EXP-002 §6）。
 
-**部署侧的折叠约束。** 要让 $X\，\mathrm{diag}(s)^{-1}$ 不产生额外算子，只能把 $1/s$ 折叠进**产生这个 X 的那个算子**的权重里——pre-norm 结构下就是前置 RMSNorm(`ln.weight /= s`)。前提是**所有消费同一个 X 的 Linear 必须共用同一个 s**，否则一个 RMSNorm 没法同时满足几套。本模型里即 {q，k，v} 一组、 {gate，up} 一组。本仓走 fake-quant 评测形式(把 $Q(Ws)/s$ 写回 weight、激活不动，`src/awq.py:29-33`)，与"runtime 给激活除 s"端到端等价，所以 per-linear 独立 s 在**评测口径下合法**；**但这不是部署形态**，拿去做零开销部署会立刻撞上共享约束。这条边界必须随数字一起说。
+**部署侧的折叠约束。** 要让 $X\,\mathrm{diag}(s)^{-1}$ 不产生额外算子，只能把 $1/s$ 折叠进**产生这个 X 的那个算子**的权重里——pre-norm 结构下就是前置 RMSNorm(`ln.weight /= s`)。前提是**所有消费同一个 X 的 Linear 必须共用同一个 s**，否则一个 RMSNorm 没法同时满足几套。本模型里即 {q，k，v} 一组、 {gate，up} 一组。本仓走 fake-quant 评测形式（把 $Q(Ws)/s$ 写回 weight、激活不动，`src/awq.py:29-33`），与"runtime 给激活除 s"端到端等价，所以 per-linear 独立 s 在**评测口径下合法**；**但这不是部署形态**，拿去做零开销部署会立刻撞上共享约束。这条边界必须随数字一起说。
 
 ### 3.5 SmoothQuant:迁移强度 α 与逐通道误差分析
 
@@ -411,9 +411,9 @@ $s_j = \mathrm{actmax}_j^{\alpha} \,/\, \mathrm{wmax}_j^{1-\alpha}$
 - 激活侧：$\mathrm{actmax}_j / s_j = \mathrm{actmax}_j\cdot \mathrm{actmax}_j^{-\alpha}\cdot\mathrm{wmax}_j^{1-\alpha} = (\mathrm{actmax}_j\,\mathrm{wmax}_j)^{1-\alpha}$
 - 权重侧：$\mathrm{wmax}_j \cdot s_j = \mathrm{wmax}_j\cdot\mathrm{actmax}_j^{\alpha}\cdot\mathrm{wmax}_j^{\alpha-1} = (\mathrm{actmax}_j\,\mathrm{wmax}_j)^{\alpha}$
 
-两侧都只是**同一个量** $p_j：= \mathrm{actmax}_j\，\mathrm{wmax}_j$ 的幂： 激活侧是 $p_j^{1-\alpha}$、权重侧是 $p_j^{\alpha}$。这个观察有个直接推论， 后面要用：**两侧的通道最大值由同一个 j 取到**（因为 $p^{1-\alpha}$ 与 $p^{\alpha}$ 都是 $p$ 的单调增函数），即 $M_x(\alpha) = P^{1-\alpha}$、$M_w(\alpha) = P^{\alpha}$，其中 $P = \max_j p_j$。
+两侧都只是**同一个量** $p_j:= \mathrm{actmax}_j\,\mathrm{wmax}_j$ 的幂： 激活侧是 $p_j^{1-\alpha}$、权重侧是 $p_j^{\alpha}$。这个观察有个直接推论， 后面要用：**两侧的通道最大值由同一个 j 取到**（因为 $p^{1-\alpha}$ 与 $p^{\alpha}$ 都是 $p$ 的单调增函数），即 $M_x(\alpha) = P^{1-\alpha}$、$M_w(\alpha) = P^{\alpha}$，其中 $P = \max_j p_j$。
 
-α=0.5 时两侧恰为几何均值 $\sqrt{\mathrm{actmax}_j\，\mathrm{wmax}_j}$——难度几何均衡；α 越大激活越轻、权重越重。论文 §5.5 的 Figure 10 给出 α 消融： "when α is too small (<0.4)， the activations are hard to quantize； when α is too large (>0.6)， the weights will be hard to quantize"，甜区 0.4–0.6， 默认 0.5；GLM-130B 因 outlier 更严重而取 0.75。
+α=0.5 时两侧恰为几何均值 $\sqrt{\mathrm{actmax}_j\,\mathrm{wmax}_j}$——难度几何均衡；α 越大激活越轻、权重越重。论文 §5.5 的 Figure 10 给出 α 消融： "when α is too small (<0.4)， the activations are hard to quantize； when α is too large (>0.6)， the weights will be hard to quantize"，甜区 0.4–0.6， 默认 0.5；GLM-130B 因 outlier 更严重而取 0.75。
 
 #### 3.5.4 α 的一阶最优条件与权重粒度项(本讲义推导)
 
@@ -427,9 +427,9 @@ $\Delta y_i \approx \sum_j \big(e^x_j\,\tilde W_{ij} + \tilde x_j\,e^W_{ij}\big)
 
 $\mathrm{Var}(\Delta y_i) \approx \tfrac{\Delta_x^2}{12}\sum_j \tilde W_{ij}^2 \;+\; \tfrac{\Delta_W^2}{12}\sum_j \tilde x_j^2$
 
-**代入幅值。** 用"通道幅值 × 形状因子"的写法 $x_j = a_j u_j$、 $W_{ij} = w_j v_{ij}$（$a=\mathrm{actmax}$、$w=\mathrm{wmax}$，故 $|u|，|v|\le 1$）。由 §3.5.3，$\tilde x_j = p_j^{1-\alpha}u_j$、 $\tilde W_{ij} = p_j^{\alpha}v_{ij}$，而 $\Delta_x = P^{1-\alpha}/127$、$\Delta_W = P^{\alpha}V/127$，其中 $V$ 是权重量化粒度决定的"峰值利用率"因子（per-tensor 时 $V=\max_{ij}|v_{ij}|$， per-输出行时 $V_i=\max_j |v_{ij}|$，后者逐行取，必然 $\le$ 前者）。激活侧的同名因子被 per-token 动态 scale 逐 token 吸收，故此处取 1，不出现在式中——**两侧的不对称正是"粒度"这个变量进入结论的入口**。
+**代入幅值。** 用"通道幅值 × 形状因子"的写法 $x_j = a_j u_j$、 $W_{ij} = w_j v_{ij}$（$a=\mathrm{actmax}$、$w=\mathrm{wmax}$，故 $|u|,|v|\le 1$）。由 §3.5.3，$\tilde x_j = p_j^{1-\alpha}u_j$、 $\tilde W_{ij} = p_j^{\alpha}v_{ij}$，而 $\Delta_x = P^{1-\alpha}/127$、$\Delta_W = P^{\alpha}V/127$，其中 $V$ 是权重量化粒度决定的"峰值利用率"因子（per-tensor 时 $V=\max_{ij}|v_{ij}|$， per-输出行时 $V_i=\max_j |v_{ij}|$，后者逐行取，必然 $\le$ 前者）。激活侧的同名因子被 per-token 动态 scale 逐 token 吸收，故此处取 1，不出现在式中——**两侧的不对称正是"粒度"这个变量进入结论的入口**。
 
-把 $q_j：= p_j/P \in (0,1]$ 代进去，$P$ 会整体提出：
+把 $q_j:= p_j/P \in (0,1]$ 代进去，$P$ 会整体提出：
 
 $12\cdot 127^2\cdot\mathrm{Var}(\Delta y_i) = P^2\Big[\underbrace{\sum_j q_j^{2\alpha}v_{ij}^2}_{S_1(\alpha)} \;+\; V^2\underbrace{\sum_j q_j^{2-2\alpha}u_j^2}_{S_2(\alpha)}\Big]$
 
@@ -453,15 +453,15 @@ $12\cdot 127^2\cdot\mathrm{Var}(\Delta y_i) = P^2\Big[\underbrace{\sum_j q_j^{2\
 
 ①**配对方向**：`0::2`（偶列）配低 nibble、`1::2`（奇列）配高 nibble。写反的后果是 dequant 出的权重列序**两两对调**——forward 不报错，PPL 灾难性劣化。 ②**无符号语义**：qidx 是 `uint8` 且值域 [0,15]，`<< 4` 不溢出、`>> 4` 是逻辑右移；换成 `int8` 存则 `>> 4` 变算术右移、高位符号扩展，高 nibble 解错。 ③**列数偶数**：见 §3.1.1 最后一条。
 
-生产内核在这一层还要多做一件本仓不做的事：按 mma fragment 的线程—元素映射 **预置换**权重，否则反量化后还要跨 lane 洗牌（Marlin 的 "bespoke quantization support"，arXiv：2408.11743）。本仓 forward 走通用 `torch.nn.functional.linear`，没有这个约束——**打包格式的自由度取决于下游 kernel，不取决于量化算法**。
+生产内核在这一层还要多做一件本仓不做的事：按 mma fragment 的线程—元素映射 **预置换**权重，否则反量化后还要跨 lane 洗牌（Marlin 的 "bespoke quantization support"，arXiv:2408.11743）。本仓 forward 走通用 `torch.nn.functional.linear`，没有这个约束——**打包格式的自由度取决于下游 kernel，不取决于量化算法**。
 
 #### 3.6.2 fp16 的 ulp 与那个容差公式的完整推导(本讲义推导)
 
-IEEE 754 binary16:1 符号位 + 5 指数位 + 10 尾数位，含隐含位的精度 $p = 11$。对 $|w| \in [2^e， 2^{e+1})$，ulp $= 2^{e-10}$，故**相对 ulp** $\in (2^{-11}， 2^{-10}]$；round-to-nearest 的绝对误差不超过半个 ulp，即 $\le |w|\cdot 2^{-11}$。
+IEEE 754 binary16:1 符号位 + 5 指数位 + 10 尾数位，含隐含位的精度 $p = 11$。对 $|w| \in [2^e, 2^{e+1})$，ulp $= 2^{e-10}$，故**相对 ulp** $\in (2^{-11}, 2^{-10}]$；round-to-nearest 的绝对误差不超过半个 ulp，即 $\le |w|\cdot 2^{-11}$。
 
 现在数一数 pack↔fake 比较路径上有几次 fp16 舍入：①**fake 侧**——GPTQ 把 $Q$ 写回 `layer.weight`(fp16)，一次（`src/gptq.py:189`）；②**pack 侧的 scales**——存 half(`src/quant_linear.py:39`)，一次；③**pack 侧的 zeros**——也存 half，但 **z 是 [0,15] 的整数**，binary16 精确表示 2048 以内整数，**无损**； ④**反量化**——$(q-z)\cdot s$ 在 **float32** 域算（`src/quant_linear.py:57-58`）， 不引入新的 fp16 舍入。
 
-于是最大绝对残差 $\le |w|\cdot 2^{-11} + |(q-z)s|\cdot 2^{-11} \approx |w|\cdot 2^{-10}$ (第二项的 $(q-z)s$ 就是 $\hat w \approx w$)。取全矩阵上界即 $w_{max}\cdot 2^{-10}$——**这正是代码里的 `tol = max(1e-3, wmax * 2 ** -10)` (`scripts/run_w4a16.py:176-177`)**。
+于是最大绝对残差 $\le |w|\cdot 2^{-11} + |(q-z)s|\cdot 2^{-11} \approx |w|\cdot 2^{-10}$（第二项的 $(q-z)s$ 就是 $\hat w \approx w$）。取全矩阵上界即 $w_{max}\cdot 2^{-10}$——**这正是代码里的 `tol = max(1e-3, wmax * 2 ** -10)` (`scripts/run_w4a16.py:176-177`)**。
 
 **所以这个魔法数是硬件格式决定的，不是扫出来的**：2 的指数来自 binary16 的尾数位数，系数 2（即 $2^{-11}\to 2^{-10}$）来自路径上**两次**独立的 fp16 存储。若哪天把 scale 改存 fp32，分子就该退回 $2^{-11}$；若中间再加一次 fp16 中转，就该放到 $3\cdot 2^{-11}$。**容差随实现路径变，不随经验变。**
 
@@ -480,7 +480,7 @@ $\mathrm{PPL} = \exp\big(\tfrac{1}{N}\sum_t -\log p(x_t \mid x_{<t})\big)$。本
 三条结构性局限：
 
 1. **只看 ground-truth token 的那一个概率。** 分布其余 151935 维怎么变， PPL 完全看不见。量化若把"第二名 token 的概率"从 0.3 打到 0.05，PPL 可能纹丝不动，而采样生成的行为已经变了。
-2. **几何平均会互相抵消。** Dutta et al.("Accuracy is Not All You Need"， arXiv：2407.09141)指出 perplexity 可解读为 token 概率的几何平均的倒数， 部分 token 变差可被另一部分变好抵消；该文更进一步给出一个刺眼的构造： **加对称噪声不改变 PPL，而生成质量随噪声标准差下降**。
+2. **几何平均会互相抵消。** Dutta et al.("Accuracy is Not All You Need"， arXiv:2407.09141)指出 perplexity 可解读为 token 概率的几何平均的倒数， 部分 token 变差可被另一部分变好抵消；该文更进一步给出一个刺眼的构造： **加对称噪声不改变 PPL，而生成质量随噪声标准差下降**。
 3. **口径敏感、跨实现不可比。** 窗口/步长/是否丢尾/tokenizer/是否 fp32 log_softmax 全都改数值。这是本仓反复强调"只作协议内臂间相对比较"的原因。
 
 #### 3.7.2 该补什么:KL 与 flips
@@ -543,7 +543,7 @@ $\mathrm{PPL} = \exp\big(\tfrac{1}{N}\sum_t -\log p(x_t \mid x_{<t})\big)$。本
 
 角色：把约 26 万校准 token(128×2048，EXP-001 §2)的二阶统计压进（in，in） 矩阵。为什么均值而不是裸和：26 万 token 的外积裸累加量级线性膨胀，fp32 后来的批会"大数吃小数"；而补偿公式对 H 的整体缩放不变（注释里那行代数）， 归一只买数值稳定，不改结果。
 
-**"缩放不变"这一步值得展开一次**（本讲义推导）：设 $H \to cH$($c>0$)，则 $H^{-1}\to H^{-1}/c$，其 Cholesky 上三角因子 $U \to U/\sqrt{c}$；于是 $\varepsilon/U_{jj}$ 放大 $\sqrt{c}$、$U_{j，j：}$ 缩小 $\sqrt{c}$，乘积不变——**补偿量与 c 无关**。唯一受影响的是 `percdamp` 的含义（它取"相对平均对角"），这正是两个设计必须配套的原因。
+**"缩放不变"这一步值得展开一次**（本讲义推导）：设 $H \to cH$($c>0$)，则 $H^{-1}\to H^{-1}/c$，其 Cholesky 上三角因子 $U \to U/\sqrt{c}$；于是 $\varepsilon/U_{jj}$ 放大 $\sqrt{c}$、$U_{j,j:}$ 缩小 $\sqrt{c}$，乘积不变——**补偿量与 c 无关**。唯一受影响的是 `percdamp` 的含义（它取"相对平均对角"），这正是两个设计必须配套的原因。
 
 改错会怎样：漏掉 `self.H *=` 的旧值收缩，H 变成"越晚到的批权重越低"的错误加权；用 fp16 存 H 则病态层直接分解失败（`src/gptq.py:73-76` 把 dtype 写死， 不是可调项）。硬件账：down_proj 的 H 是 90.25 MiB、单层七个 108.6 MiB (§1.2)，不逐 Linear 释放则 24 层累计 2.5 GiB（本讲义推导）。
 
@@ -571,9 +571,9 @@ $\mathrm{PPL} = \exp\big(\tfrac{1}{N}\sum_t -\log p(x_t \mid x_{<t})\big)$。本
 
 角色：一次性算出 §3.3.7 的 U。死列（校准集中恒为零的输入通道）无二阶信息， 对角置 1 保可分解、权重清零省码域；三步分解即 分解 H → 由因子求 $H^{-1}$ → 对 $H^{-1}$ 再做上三角分解得 U。
 
-**三步各自的必要性**：`cholesky(H)` 既是求逆的前置，也是"H 是否真正定"的运行时检查（失败即说明阻尼不够）；`cholesky_inverse` 而非 `torch.linalg.inv`，因为前者利用对称正定结构、避免通用 LU 的额外误差（§3.3.7）；`upper=True` 决定了后面按**行**取 $U_{j，j：}$ 的方向。
+**三步各自的必要性**：`cholesky(H)` 既是求逆的前置，也是"H 是否真正定"的运行时检查（失败即说明阻尼不够）；`cholesky_inverse` 而非 `torch.linalg.inv`，因为前者利用对称正定结构、避免通用 LU 的额外误差（§3.3.7）；`upper=True` 决定了后面按**行**取 $U_{j,j:}$ 的方向。
 
-改错会怎样：少了阻尼，强共线层的 cholesky 直接抛错或补偿量爆炸；丢掉 `upper=True` 拿到下三角因子，行方向与"后缀自由集"错位、补偿方向整个转置， PPL 不报错但显著劣化——这类 bug 只有对照臂能抓出来。另一个易忽略的细节： `H[dead, dead] = 1.0` 是**花式索引的对角写法**，只写 $(k，k)$ 这些点；死列的整行整列本就全 0，把对角顶起来即可重新正定，误写成 `H[dead] = 1.0`（整行置 1）会破坏对称性，Cholesky 直接失效。
+改错会怎样：少了阻尼，强共线层的 cholesky 直接抛错或补偿量爆炸；丢掉 `upper=True` 拿到下三角因子，行方向与"后缀自由集"错位、补偿方向整个转置， PPL 不报错但显著劣化——这类 bug 只有对照臂能抓出来。另一个易忽略的细节： `H[dead, dead] = 1.0` 是**花式索引的对角写法**，只写 $(k,k)$ 这些点；死列的整行整列本就全 0，把对角顶起来即可重新正定，误写成 `H[dead] = 1.0`（整行置 1）会破坏对称性，Cholesky 直接失效。
 
 **第 4 段 · 逐列量化与两级补偿**(`src/gptq.py:155-172`、`177-184`)——算法心脏，blocksize=group_size 的对齐原因在此：
 
@@ -609,7 +609,7 @@ $\mathrm{PPL} = \exp\big(\tfrac{1}{N}\sum_t -\log p(x_t \mid x_{<t})\big)$。本
                 W[:, i2:] -= Err1 @ Hinv[i1:i2, i2:]
 ```
 
-角色：§3.3 推导的最终落地，`err = (w-dq)/Hinv1[i,i]` 与下一行合起来就是 $-(\varepsilon/U_{jj})\cdot U_{j，j：}$。**blocksize 必须等于 group_size**（`src/gptq.py:136` 断言）：组参数 find_params 在块头一次性确定，此刻该组所有列的"前序块误差"已通过块间 lazy 更新传播到位——组网格描述的正是即将被量化的那批数值；若 blocksize≠gs，组横跨块边界，scale/zero 取自"部分已补偿、部分未补偿"的混合权重，与实际被量化的数值系统性错位。`use_hessian=False` 时跳过全部补偿路径、其余一切共享——这个开关就是 EXP-001 的实验设计本身。
+角色：§3.3 推导的最终落地，`err = (w-dq)/Hinv1[i,i]` 与下一行合起来就是 $-(\varepsilon/U_{jj})\cdot U_{j,j:}$。**blocksize 必须等于 group_size**（`src/gptq.py:136` 断言）：组参数 find_params 在块头一次性确定，此刻该组所有列的"前序块误差"已通过块间 lazy 更新传播到位——组网格描述的正是即将被量化的那批数值；若 blocksize≠gs，组横跨块边界，scale/zero 取自"部分已补偿、部分未补偿"的混合权重，与实际被量化的数值系统性错位。`use_hessian=False` 时跳过全部补偿路径、其余一切共享——这个开关就是 EXP-001 的实验设计本身。
 
 改错会怎样：把 `W1[:, i:]` 写成 `W1[:, i+1:]` 看似更合理（别改自己），实际等价（第 i 列的更新在赋值 Q1 之后不再被读）；但把块间更新的 `Hinv[i1:i2, i2:]` 切片切错一列，后续所有组的网格都建立在错位的权重上，误差逐块滚雪球。
 
@@ -933,7 +933,7 @@ fig2(`figures/fig2_recovery_rates.png`)：横轴恢复率 0-100%，各赛道内�
 
 **误区五："per-layer loss 可以当质量指标排层。"** GPTQ 的逐列损失 $\varepsilon^2/(2[H_F^{-1}]_{jj})$ 数值量级 1e-20~1e-15(EXP-001 §7)：量纲随 H 的运行均值归一化缩放，未标定，仅可作层间相对诊断，不进任何表格。量化正确性由 PPL 与 pack 断言独立支撑。**同理适用于 per_layer 的 `sec` 字段**(§5.6)。
 
-**误区六："PPL 不掉就说明模型没坏。"** PPL 只看 ground-truth token 的那一个概率，且是几何平均——部分 token 变差可被另一部分变好抵消（Dutta et al.， arXiv：2407.09141）。该文更给出一个刺眼的反例：加对称噪声不改 PPL，而生成质量随噪声标准差下降。**本仓只有 PPL，所以本仓能主张的只有"机制 A 比机制 B 收回更多缺口"，不能主张"量化后模型行为不变"。** 要补的是 KL 与 flips，入口在 `scripts/run_w4a16.py:218` 的完整分布上（§3.7.2）。
+**误区六："PPL 不掉就说明模型没坏。"** PPL 只看 ground-truth token 的那一个概率，且是几何平均——部分 token 变差可被另一部分变好抵消（Dutta et al.， arXiv:2407.09141）。该文更给出一个刺眼的反例：加对称噪声不改 PPL，而生成质量随噪声标准差下降。**本仓只有 PPL，所以本仓能主张的只有"机制 A 比机制 B 收回更多缺口"，不能主张"量化后模型行为不变"。** 要补的是 KL 与 flips，入口在 `scripts/run_w4a16.py:218` 的完整分布上（§3.7.2）。
 
 **误区七："校准集随便选，反正只是估个统计量。"** 本仓校准取 wikitext-2 的 **train**、评测取 **test**——不重叠，但**同源**。AWQ 论文 §5.3(Figure 8(b)) 报告：校准与评测换成不同分布（PubMed↔Enron）时 AWQ 只涨 0.5–0.6 PPL，而 GPTQ 涨 2.3–4.9；GPTQ 原论文本身用 **C4**（128 段 × 2048 token）去评 WikiText， 是有意的跨域设置。**所以本仓的同源校准很可能对 GPTQ/AWQ 相对 RTN 的优势偏乐观**，而本仓没有跨域臂来排除。这是最该补的一个对照，也是引用 61.6% 时必须一起说出口的限定。
 
@@ -1004,9 +1004,9 @@ fig2(`figures/fig2_recovery_rates.png`)：横轴恢复率 0-100%，各赛道内�
 | 11 | SmoothQuant §3：激活 outlier 幅值约为普通值的 ~100×，且固定在少数通道 | 本仓**未测 outlier 幅值倍数** | 只有间接证据：naive W8A8 仅退化 +0.2075(EXP-003 §5)，说明 0.5B 远没到那个量级。不作定量主张 |
 | 12 | LLM.int8() §4.2:6B 与 6.7B 之间发生相变，相变后所有 transformer 层与 75% 的序列维度被极端幅值特征影响；§4：幅值可达其他维度的 20× | 本仓模型 0.5B，远在相变之下 | **这条正是本仓 SmoothQuant 收益小的外部解释**：不是实现问题，是模型尺度不在该方法的主战场。把它写进限定语，比含糊说"收益有限"诚实得多 |
 | 13 | SmoothQuant §3：INT8 kernel 的缩放"can only be performed along the outer dimensions of the matrix multiplication" | 本仓 `src/smoothquant.py:31-35` 的注释是同一论断；代码轴选择与之一致（`amax(dim=-1)` / `amax(dim=1)`） | **文档/论文与实现完全一致**。cuBLAS 对这类向量缩放的官方命名就是 "Outer Vector Scaling"（文档 §3.1.4.3，该小节列在 FP8 下；INT8 是否有同名接口**未核实**） |
-| 14 | CUDA C++ Programming Guide：wmma 的子字节类型 `experimental::precision::u4/s4` 与 `b1` 的 XOR 变体已弃用，并在 sm_90 移除 | 本仓不写 kernel，INT4 只作**存储**格式，forward 反量化到 fp16 再走通用 GEMM | 这条解释了为什么 W4A16 的生产内核（Marlin，arXiv：2408.11743）也一律"INT4 存 → 寄存器内反量化 → FP16 张量核"，而不是喂 INT4 张量核。**本仓的教学实现与生产实现在这一点上路线相同，差的只是融合** |
+| 14 | CUDA C++ Programming Guide：wmma 的子字节类型 `experimental::precision::u4/s4` 与 `b1` 的 XOR 变体已弃用，并在 sm_90 移除 | 本仓不写 kernel，INT4 只作**存储**格式，forward 反量化到 fp16 再走通用 GEMM | 这条解释了为什么 W4A16 的生产内核（Marlin，arXiv:2408.11743）也一律"INT4 存 → 寄存器内反量化 → FP16 张量核"，而不是喂 INT4 张量核。**本仓的教学实现与生产实现在这一点上路线相同，差的只是融合** |
 | 15 | Ada 白皮书 Appendix A：RTX 4090 显存带宽 1008 GB/s、FP32 82.6 TFLOPS、L2 72 MB | 本仓所有带宽/算力折算**用的都是这些规格值**，未做微基准 | 这是 §3.3.8 与 §5.6 里全部"下限"折算的已知偏差来源：实测可达值通常低于规格值，故那些下限是**乐观下限**，真实下限更大。白皮书里的 INT8 Tensor TOPS 本讲义**未能逐字核对**，故不引用 |
-| 16 | Dutta et al.(arXiv：2407.09141)：PPL 可解读为 token 概率几何平均的倒数，加对称噪声不改 PPL 而生成质量下降；建议同时报 KL 与 flips | 本仓**只有 PPL**，无 KL、无 flips、无下游任务 | 不矛盾，是覆盖面不足。本仓主张的措辞因此被限定为"收回缺口的比例"，而非"质量无损"（§3.7.2 给了补测入口） |
+| 16 | Dutta et al.(arXiv:2407.09141)：PPL 可解读为 token 概率几何平均的倒数，加对称噪声不改 PPL 而生成质量下降；建议同时报 KL 与 flips | 本仓**只有 PPL**，无 KL、无 flips、无下游任务 | 不矛盾，是覆盖面不足。本仓主张的措辞因此被限定为"收回缺口的比例"，而非"质量无损"（§3.7.2 给了补测入口） |
 
 **这张表的读法**：16 条里只有第 3 条与第 13 条是严格的"文档—实现"对齐闭环； 第 10 条是**有机制解释的冲突**（权重粒度 + 规模，方向可推）；其余大多是 "不可比"或"本仓未测"。**论文的数字几乎从不能直接搬到你的设置上**，能搬的是机制、判据与那些不依赖规模的代数关系。
 
@@ -1023,7 +1023,7 @@ fig2(`figures/fig2_recovery_rates.png`)：横轴恢复率 0-100%，各赛道内�
 本仓不写 CUDA kernel，硬件语义因此不以内核代码出现，而以**对数据布局与算法形态的硬约束**出现。四条最要紧的（前三条的推导分别见 §3.5.2、§3.6.1、 §3.3.8，这里只汇总"约束 → 代码后果"这一层）：
 
 1. **整数张量核在 k 维上做整数累加 → 激活只能 per-token。** PTX ISA 的整数 mma 一族（如 `mma.sync.aligned.m16n8k32.row.col.s32.s8.s8.s32`）把 s8×s8 的乘积累到 s32，整个 k 维归约在整数域完成；cuBLAS 的 `CUBLAS_COMPUTE_32I` 文档写"uses compute and intermediate storage precisions of at least 32-bits"(§2.2.11)，NVIDIA 把归约后作用于两个外维的向量缩放直接叫 "Outer Vector Scaling"(§3.1.4.3)。**代码后果**： `src/smoothquant.py:41-53` 的两个 `amax` 轴参数不是风格选择；SmoothQuant 必须存在，也正是因为这条约束堵死了"给激活做 per-channel"这条省事的路。
-2. **INT4 没有可用的张量核路径 → 4 bit 只是存储格式。** CUDA 的 wmma 子字节类型（`experimental::precision::u4/s4`、`b1` 的 XOR 变体）已弃用并在 sm_90 移除。**代码后果**：W4A16 整条链路都是"INT4 存 → 反量化到 fp16 → fp16 GEMM"，本仓 `QuantLinear4.forward` 与 Marlin 路线相同，差别只在反量化发生在全局内存还是寄存器里。这也解释了 §8.2 里 EXP-016 的 regime 分化：大 M 时反量化的固定开销摊不掉，收益就被吃掉。
+2. **INT4 没有可用的张量核路径 → 4 bit 只是存储格式。** CUDA 的 wmma 子字节类型（`experimental::precision::u4/s4`、`b1` 的 XOR 变体）已弃用并在 sm_90 移除。**代码后果**：W4A16 整条链路都是"INT4 存 → 反量化到 fp16 → fp16 GEMM"，本仓 `QuantLinear4.forward` 与 Marlin 路线相同，差别只在反量化发生在全局内存还是寄存器里。这也解释了 §8.2 里 vllm/experiments#EXP-016 的 regime 分化：大 M 时反量化的固定开销摊不掉，收益就被吃掉。
 3. **打包位序与下游 kernel 的 fragment 布局耦合。** 本仓走通用 `F.linear`， 自然列序打包就够（`src/quant_linear.py:35`）；生产内核要按 mma 的线程—元素映射预置换权重，否则反量化后还要跨 lane 洗牌（Marlin 的 "bespoke quantization support"）。**打包格式的自由度取决于下游 kernel，不取决于量化算法。**
 4. **带宽与容量决定哪些中间量能留、哪些必须释放。** down_proj 的 H 是 90.25 MiB、单层七个 108.6 MiB，24 层不释放要 2.5 GiB(§1.2)；校准输入 `inps` 469 MB、阶段 C 双份约 0.94 GB（§4 第 1 段）。4090 的 24 GB 显存与 1008 GB/s 带宽（白皮书 Appendix A）决定了这些量必须逐 Linear 释放（`src/gptq.py:193-197`），也决定了 §3.3.8 的 lazy batch update 是**带宽优化而非算力优化**——朴素逐列全宽更新在 down_proj 一层就要 170 GB 读写， 规格带宽下 0.17 s 起（本讲义推导）。
 
@@ -1031,15 +1031,15 @@ fig2(`figures/fig2_recovery_rates.png`)：横轴恢复率 0-100%，各赛道内�
 
 1. LeCun， Denker & Solla， "Optimal Brain Damage"， NIPS 1989。——想知道"用二阶信息判断权重重不重要"这条线的起点，以及 quadratic/extremum/diagonal 三重近似各自假设了什么，读这篇。
 2. Hassibi & Stork， "Second Order Derivatives for Network Pruning： Optimal Brain Surgeon"， NIPS 1992。——想弄清 $\delta w = -\frac{w_q}{[H^{-1}]_{qq}}H^{-1}e_q$ 与 $L_q = \frac{w_q^2}{2[H^{-1}]_{qq}}$ 怎么从拉格朗日推出来、为什么是 **逆的对角元**而不是对角元的倒数，读这里。
-3. Frantar， Singh & Alistarh， "Optimal Brain Compression"， arXiv：2208.11580。——想看清"把删权重换成量化权重"这一步替换的完整框架（它同时覆盖剪枝）， 读这篇；GPTQ 的全部数学都是它的工程化。
-4. Frantar， Ashkboos， Hoefler & Alistarh， "GPTQ： Accurate Post-Training Quantization for Generative Pre-trained Transformers"， arXiv：2210.17323， §3 Background（OBQ 的 Eq.2-3）与 §4 The GPTQ Algorithm 的三步（Arbitrary Order / Lazy Batch-Updates / Cholesky Reformulation）与 Algorithm 1。——想确认"固定列序凭什么行""B=128 从哪来""为什么是 Cholesky 而不是继续消元"，这三节一次讲完；注意论文对固定列序用的是 "may perform well" 这种经验性措辞。
+3. Frantar， Singh & Alistarh， "Optimal Brain Compression"， arXiv:2208.11580。——想看清"把删权重换成量化权重"这一步替换的完整框架（它同时覆盖剪枝）， 读这篇；GPTQ 的全部数学都是它的工程化。
+4. Frantar， Ashkboos， Hoefler & Alistarh， "GPTQ： Accurate Post-Training Quantization for Generative Pre-trained Transformers"， arXiv:2210.17323， §3 Background（OBQ 的 Eq.2-3）与 §4 The GPTQ Algorithm 的三步（Arbitrary Order / Lazy Batch-Updates / Cholesky Reformulation）与 Algorithm 1。——想确认"固定列序凭什么行""B=128 从哪来""为什么是 Cholesky 而不是继续消元"，这三节一次讲完；注意论文对固定列序用的是 "may perform well" 这种经验性措辞。
 5. IST-DASLab/gptq 仓库 README 与 `gptq.py`。——想知道 `--act-order`、 `--static-groups`、`--true-sequential` 各解决什么问题、推理侧代价是什么， 读 README；`gptq.py` 是本仓三处数值锚点的对齐原件。
-6. Lin et al.， "AWQ： Activation-aware Weight Quantization for LLM Compression and Acceleration"， arXiv：2306.00978，§3.1 Table 1、§3.2 Table 2 与 Eq.(4)-(5)、§5.3 Figure 8(b)。——"为什么按激活而不是按权重挑显著通道""缩放降低误差的证明覆盖了什么情形""跨域校准时 AWQ 和 GPTQ 差多少"，这三处各管一个。
+6. Lin et al.， "AWQ： Activation-aware Weight Quantization for LLM Compression and Acceleration"， arXiv:2306.00978，§3.1 Table 1、§3.2 Table 2 与 Eq.(4)-(5)、§5.3 Figure 8(b)。——"为什么按激活而不是按权重挑显著通道""缩放降低误差的证明覆盖了什么情形""跨域校准时 AWQ 和 GPTQ 差多少"，这三处各管一个。
 7. mit-han-lab/llm-awq 的 `awq/quantize/auto_scale.py` 与 `auto_clip.py`。——想搞清本仓 per-linear 简化到底简化掉了什么（块级 MSE、共享输入组共享 s、 weight clip 的 10 档收缩搜索），对着这两个文件读最快；`auto_scale.py` 的几何归一那一行还带着一个真实的 inf 事故（仓库 issue #96）。
-8. Xiao et al.， "SmoothQuant： Accurate and Efficient Post-Training Quantization for Large Language Models"， arXiv：2211.10438，§3 Review of Quantization Difficulty、§4 的 Eq.4、Table 2、§5.5 Figure 10。——想确认 "outlier 为什么按通道固定""迁移公式怎么来""α 甜区是多少、超出会怎样" "O1/O2/O3 的粒度组合分别是什么"，这四处一一对应；Table 2 是理解本仓 α=0.75 与论文 0.5 冲突的关键（粒度不同）。
-9. Dettmers et al.， "LLM.int8()： 8-bit Matrix Multiplication for Transformers at Scale"， arXiv：2208.07339，§4 与 §4.2。——想知道"激活 outlier 到底多大、什么规模开始出现、影响多少层"，读这里；它是"为什么 0.5B 上 SmoothQuant 收益小"最有力的外部解释。
-10. Dutta， Krishnan， Kwatra & Ramjee， "Accuracy is Not All You Need"， arXiv：2407.09141。——想知道"PPL 不掉是不是等于模型没变"以及该用什么替代（KL 与 flips），读这篇；它直接决定了本仓 PPL 结论的措辞边界。
-11. Frantar， Castro， Chen， Hoefler & Alistarh， "MARLIN： Mixed-Precision Auto-Regressive Parallel Inference on Large Language Models"， arXiv：2408.11743。——想知道"4 bit 权重在真实内核里怎么跑得快""为什么 batch 一大加速就衰减"，读这篇；它也是本仓 `QuantLinear4` 教学实现与生产实现之间那道鸿沟的准确描述。
+8. Xiao et al.， "SmoothQuant： Accurate and Efficient Post-Training Quantization for Large Language Models"， arXiv:2211.10438，§3 Review of Quantization Difficulty、§4 的 Eq.4、Table 2、§5.5 Figure 10。——想确认 "outlier 为什么按通道固定""迁移公式怎么来""α 甜区是多少、超出会怎样" "O1/O2/O3 的粒度组合分别是什么"，这四处一一对应；Table 2 是理解本仓 α=0.75 与论文 0.5 冲突的关键（粒度不同）。
+9. Dettmers et al.， "LLM.int8()： 8-bit Matrix Multiplication for Transformers at Scale"， arXiv:2208.07339，§4 与 §4.2。——想知道"激活 outlier 到底多大、什么规模开始出现、影响多少层"，读这里；它是"为什么 0.5B 上 SmoothQuant 收益小"最有力的外部解释。
+10. Dutta， Krishnan， Kwatra & Ramjee， "Accuracy is Not All You Need"， arXiv:2407.09141。——想知道"PPL 不掉是不是等于模型没变"以及该用什么替代（KL 与 flips），读这篇；它直接决定了本仓 PPL 结论的措辞边界。
+11. Frantar， Castro， Chen， Hoefler & Alistarh， "MARLIN： Mixed-Precision Auto-Regressive Parallel Inference on Large Language Models"， arXiv:2408.11743。——想知道"4 bit 权重在真实内核里怎么跑得快""为什么 batch 一大加速就衰减"，读这篇；它也是本仓 `QuantLinear4` 教学实现与生产实现之间那道鸿沟的准确描述。
 12. Bennett， "Spectra of Quantized Signals"， Bell System Technical Journal 27(3)：446-472, 1948。——想知道 $s^2/12$ 这个到处被引用的量化噪声方差出自哪里、在什么假设下成立，读这篇；§3.1.2 的失效条件正是对照它的假设写的。
 13. Higham， *Accuracy and Stability of Numerical Algorithms*， 2nd ed.， SIAM 2002，第 10 章 Cholesky Factorization。——想弄明白"为什么 Cholesky 不用选主元也稳""为什么 `cholesky_inverse` 比通用 `inv` 好"，读这一章。
 14. NVIDIA 官方文档四处：PTX ISA 的 warp-level matrix instructions（整数 mma 的形状与 s32 累加语义）、CUDA C++ Programming Guide 的 wmma 小节（子字节类型的弃用说明）、cuBLAS 文档 §2.2.11 `cublasComputeType_t` 与 §3.1.4 Narrow Precision Data Types Usage、"NVIDIA Ada GPU Architecture" 白皮书 Appendix A(1008 GB/s、FP32 82.6 TFLOPS、L2 72 MB)。——前三处把 "激活为什么只能 per-token""INT4 为什么只能当存储格式"从"听说"变成 "有出处"；白皮书是本篇每一个"下限"折算的常数来源。
